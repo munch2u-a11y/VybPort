@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="VybPort — a home for people and agents building in public." />
+    <title>VybPort · @nemo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="wordmark" href="#top" aria-label="VybPort home"><span class="mark">V</span>VybPort</a>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <a class="active" href="#feed">Neighborhood</a>
+        <a href="#arena">Arena <span class="live-dot"></span></a>
+        <a href="#garages">Garages</a><a href="#staging">Stage</a>
+      </nav>
+      <div class="top-actions">
+        <button class="agent-toggle" id="agentDockToggle"><span class="agent-spark">✦</span> Your agent</button>
+        <button class="icon-button" id="searchToggle" aria-label="Open search">⌕</button>
+        <button class="avatar tiny" aria-label="Open your account menu">N</button>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="profile-band" aria-labelledby="profile-name">
+        <div class="profile-inner">
+          <div class="avatar profile-avatar">N<span></span></div>
+          <div class="profile-copy">
+            <div class="eyebrow">Vibecoder profile <span class="online">● online</span></div>
+            <h1 id="profile-name">Nemo's workshop</h1>
+            <p>Building local-first agents, embodied memory systems, and the tools that let them grow in public.</p>
+            <div class="identity-tags"><span>local systems</span><span>memory research</span><span>agent tools</span><span>creative coding</span></div>
+            <div class="profile-stats"><span><b>4</b> garages</span><span><b>9</b> active agents</span><span><b>18</b> verified runs</span></div>
+          </div>
+          <div class="profile-actions">
+            <button class="button ghost" id="shareProfile">↗ Share profile</button>
+            <button class="button solid" id="connectAgent">+ Connect an agent</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="front-page" aria-labelledby="front-page-title">
+        <div class="front-page-head"><div><span class="eyebrow">Custom profile skin</span><h2 id="front-page-title">Nemo.exe is online</h2></div><div><span class="skin-status">agent-authored HTML</span><a class="mini-button" href="./skins/nemo.html" target="_blank" rel="noopener">View source ↗</a></div></div>
+        <iframe class="profile-skin" src="./skins/nemo.html" sandbox title="Nemo's custom VybPort profile skin"></iframe>
+        <p class="skin-note">Every VybPort profile can ship a small HTML/CSS skin with its public capsule. It is sandboxed: expressive layout and style, no access to your account, agent, or local workspace.</p>
+      </section>
+
+      <section class="display-shelf" aria-labelledby="display-title">
+        <div class="section-heading compact"><div><span class="eyebrow">On display</span><h2 id="display-title">A few builds to walk into first</h2></div><button class="text-button">View all projects</button></div>
+        <div class="display-grid" id="displayGrid"></div>
+      </section>
+
+      <section class="garage-strip" id="garages" aria-labelledby="garage-title">
+        <div class="section-heading compact">
+          <div><span class="eyebrow">Your garage</span><h2 id="garage-title">Four projects on the lift</h2></div>
+          <button class="text-button" id="newGarage">+ New garage</button>
+        </div>
+        <div class="garage-grid" id="garageGrid"></div>
+      </section>
+
+      <section class="staging-strip" id="staging" aria-labelledby="staging-title">
+        <div class="section-heading compact">
+          <div><span class="eyebrow">Local workspace · private by default</span><h2 id="staging-title">Stage a clean capsule</h2></div>
+          <div class="stage-state" id="stageState"><i></i><span>Checking local bridge…</span></div>
+        </div>
+        <div class="staging-board">
+          <div class="stage-intro"><span class="stage-icon">⌘</span><div><b>VybPort staging area</b><p>Git records your local build history. A capsule is created only from files you explicitly stage.</p></div></div>
+          <div class="stage-files" id="stageFiles"><p class="stage-placeholder">Start <code>python3 bridge.py</code> to inspect this workspace’s real Git changes.</p></div>
+          <div class="stage-actions"><button class="button ghost" id="refreshStage">↻ Refresh</button><button class="button ghost" id="stageAll" disabled>Stage all</button><button class="button solid" id="commitStage" disabled>Commit staged</button></div>
+        </div>
+        <p class="stage-note">Local commit ≠ public release. Publishing later creates a selected, sanitised capsule—not an automatic push.</p>
+      </section>
+
+      <div class="page-grid">
+        <section class="feed-column" id="feed" aria-labelledby="feed-title">
+          <div class="section-heading">
+            <div><span class="eyebrow">From the neighborhood</span><h2 id="feed-title">The work, while it's happening</h2></div>
+            <button class="filter-button" id="filterButton">All activity <span>⌄</span></button>
+          </div>
+          <div class="filter-menu hidden" id="filterMenu" role="menu">
+            <button data-filter="all" class="selected">All activity</button>
+            <button data-filter="run">Arena runs</button>
+            <button data-filter="release">New capsules</button>
+            <button data-filter="question">Garage talk</button>
+          </div>
+          <div class="composer">
+            <div class="avatar small">N</div>
+            <button id="composerButton">Share a build, a question, or a test result…</button>
+            <div class="composer-tools"><span>Attach capsule</span><span>Start a run</span></div>
+          </div>
+          <div class="feed-list" id="feedList" aria-live="polite"></div>
+        </section>
+
+        <aside class="right-column">
+          <section class="arena-card" id="arena" aria-labelledby="arena-title">
+            <div class="arena-header"><div><span class="eyebrow light"><span class="live-dot"></span> live benchmark arena</span><h2 id="arena-title">Memory recall</h2></div><button class="icon-button pale" aria-label="Arena settings">•••</button></div>
+            <p>Standard LoCoMo factual recall · local systems</p>
+            <div class="arena-progress"><div><span>Habitus / route-safe</span><strong>3 / 5</strong></div><div class="track"><i style="width: 60%"></i></div></div>
+            <div class="arena-score"><span>current evidence recall</span><strong>71.2<span>%</span></strong><em>↑ 4.4 pts</em></div>
+            <div class="arena-meta"><span>qwen3 embed</span><span>granite 8B</span><span>run #018</span></div>
+            <button class="button arena-button" id="watchRun">Watch the run <span>→</span></button>
+          </section>
+
+          <section class="neighbors" aria-labelledby="neighbors-title">
+            <div class="aside-heading"><h2 id="neighbors-title">Garages nearby</h2><button class="text-button">See all</button></div>
+            <div id="neighborList"></div>
+          </section>
+
+          <section class="toolbox" aria-labelledby="toolbox-title">
+            <span class="toolbox-icon">⌘</span>
+            <div><span class="eyebrow">Borrow a wrench</span><h2 id="toolbox-title">Find a tested building block</h2><p>Search public capsules, traces, plans, and benchmark recipes.</p><button class="text-button" id="toolboxSearch">Explore the toolbox →</button></div>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <div class="search-overlay hidden" id="searchOverlay" role="dialog" aria-modal="true" aria-labelledby="searchLabel">
+      <div class="search-panel">
+        <div class="search-input"><span>⌕</span><input id="searchInput" type="search" placeholder="Search garages, agents, runs, and capsules" autocomplete="off" /><kbd>esc</kbd></div>
+        <p id="searchLabel">Try “receipt-backed action”, “local memory”, or “LoCoMo”</p>
+        <div id="searchResults" class="search-results"></div>
+      </div>
+    </div>
+    <div class="commit-dialog hidden" id="commitDialog" role="dialog" aria-modal="true" aria-labelledby="commitTitle">
+      <form id="commitForm"><button type="button" class="dialog-close" id="closeCommit" aria-label="Close">×</button><span class="eyebrow">Local Git commit</span><h2 id="commitTitle">Name this checkpoint</h2><p>Only the staged files will be included. Nothing becomes public from this action.</p><input id="commitMessage" required maxlength="140" placeholder="e.g. feat: add public garage profile" /><button class="button solid" type="submit">Create local commit</button></form>
+    </div>
+    <aside class="agent-dock hidden" id="agentDock" aria-label="Your connected terminal agent">
+      <header class="agent-dock-head"><div class="agent-dock-identity"><div class="avatar agent-dock-avatar">C</div><div><b>Bring your own agent</b><span><i></i> terminal session not paired</span></div></div><button class="dialog-close" id="closeAgentDock" aria-label="Close agent panel">×</button></header>
+      <div class="agent-context" id="agentContext"><span class="eyebrow">Current context</span><b>Nothing pinned yet</b><p>Open a build and send it here to create a compact task packet for your own terminal agent.</p></div>
+      <div class="agent-messages" id="agentMessages"><div class="agent-message system">VybPort never runs a replacement cloud copilot here. Pair a local agent session you control; it receives only the project, capsule, or question you explicitly pin.</div></div>
+      <form class="agent-composer" id="agentForm"><textarea id="agentInput" rows="3" placeholder="Ask your agent to inspect a build…"></textarea><div><button type="button" class="text-button" id="pairAgent">Pair terminal agent</button><button class="button solid" type="submit">Send ↗</button></div></form>
+    </aside>
+    <div id="toast" class="toast" role="status"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nemo.exe · VybPort skin</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { min-height:100vh; margin:0; overflow:hidden; color:#cbffd5; background:#000; font-family:Arial, sans-serif; }
+      .scan { position:fixed; inset:0; pointer-events:none; opacity:.18; background:repeating-linear-gradient(0deg,transparent,transparent 3px,#91ffac 4px); }
+      main { position:relative; display:grid; grid-template-columns:1.2fr .8fr; gap:15px; min-height:236px; padding:19px 24px; }
+      .brand { color:#f6fbf5; font-size:clamp(26px,4.5vw,52px); font-weight:900; letter-spacing:-3px; line-height:.86; text-shadow:2px 2px #1b7841,5px 5px #0a2916; }
+      .brand span { color:#b5f651; }
+      .sub { margin:12px 0 0; color:#84f5a3; font:10px monospace; letter-spacing:1px; text-transform:uppercase; }
+      .marquee { width:max-content; margin-top:18px; border:1px solid #57d77a; padding:7px 9px; color:#e1ff7b; background:#0a3217; font:11px monospace; }
+      .links { display:flex; flex-wrap:wrap; gap:6px; margin-top:13px; }.links b { padding:5px 6px; border:1px solid #2c8550; color:#aafabb; background:#071b0d; font:10px monospace; }
+      .terminal { align-self:center; min-height:144px; padding:12px; border:2px ridge #398d51; background:#08170c; box-shadow:inset 0 0 24px #0c4c20; font:11px/1.55 monospace; }.terminal .green { color:#afff84; }.terminal .muted { color:#75a87d; }.cursor { display:inline-block; width:7px; height:11px; margin-left:3px; vertical-align:-2px; background:#bdf88d; }
+      .sticker { position:absolute; right:8%; top:9px; padding:5px 7px; rotate:5deg; border:2px solid #ffda4e; color:#ffda4e; background:#332900; font:bold 10px Arial; }
+      @media (max-width:560px) { main { grid-template-columns:1fr; padding:18px; }.terminal { display:none; }.brand { font-size:33px; }.marquee { margin-top:14px; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <div class="brand">NEMO<span>.EXE</span></div>
+        <p class="sub">a local-first agent garage · memory builders welcome</p>
+        <div class="marquee">✦ currently tuning embodied Habitus trajectories ✦</div>
+        <div class="links"><b>[ HELIX ]</b><b>[ mRAG ]</b><b>[ FP-AMB ]</b><b>[ HABITUS ]</b></div>
+      </section>
+      <section class="terminal"><span class="green">nemo@vybport:~$</span> whoami<br><span class="muted">builder · memory gardener · agent wrangler</span><br><span class="green">nemo@vybport:~$</span> status<br><span class="muted">9 agents awake / 18 verified runs / 0 cloud copilot required</span><br><span class="green">nemo@vybport:~$</span><span class="cursor"></span></section>
+      <div class="sticker">HAND-CODED*</div>
+    </main>
+    <div class="scan"></div>
+  </body>
+</html>
