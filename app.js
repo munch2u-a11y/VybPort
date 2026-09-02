@@ -81,7 +81,6 @@ function hideSearch() { overlay.classList.add("hidden"); }
 function renderSearch(query) { const matches = searchable.filter((item) => `${item.label} ${item.type}`.toLowerCase().includes(query.toLowerCase())).slice(0, 6); document.querySelector("#searchResults").innerHTML = matches.map((item) => `<button class="result"><span class="attachment-icon">${item.icon}</span><span><b>${item.label}</b><span>${item.type}</span></span></button>`).join("") || `<div class="result"><span>No garages or public builds match that yet.</span></div>`; }
 document.querySelector("#searchToggle").addEventListener("click", showSearch); document.querySelector("#toolboxSearch").addEventListener("click", showSearch); searchInput.addEventListener("input", (event) => renderSearch(event.target.value)); overlay.addEventListener("click", (event) => { if (event.target === overlay) hideSearch(); }); document.addEventListener("keydown", (event) => { if (event.key === "Escape") hideSearch(); if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); showSearch(); } });
 document.querySelector("#searchResults").addEventListener("click", () => { hideSearch(); toast("Opened in the garage browser."); });
-document.querySelector("#connectAgent").addEventListener("click", () => toast("Agent pairing is ready for a local bridge connection."));
 document.querySelector("#shareProfile").addEventListener("click", () => { navigator.clipboard?.writeText("https://vybport.local/@nemo"); toast("Profile link copied."); });
 document.querySelector("#newGarage").addEventListener("click", () => toast("Garage creation would start with a local folder approval."));
 document.querySelector("#composerButton").addEventListener("click", () => toast("A build composer would open here—capsules and verified runs only."));
@@ -90,17 +89,126 @@ document.querySelector("#watchRun").addEventListener("click", () => toast("Openi
 const agentDock = document.querySelector("#agentDock");
 const agentContext = document.querySelector("#agentContext");
 const agentMessages = document.querySelector("#agentMessages");
-function openAgentDock(project) { agentDock.classList.remove("hidden"); if (project) { const display = displays.find((item) => item.project === project); agentContext.innerHTML = `<span class="eyebrow">Pinned for your agent</span><b>${display.title}</b><p>${display.description}</p>`; } }
+const agentState = window.VybAgentState;
+let agentConnections = [];
+let agentHistoryRequest = 0;
+let agentSending = false;
+
+function selectedAgentConnection() {
+  return agentConnections.find((item) => item.key === document.querySelector("#agentSelect").value) || null;
+}
+
+function profileAgentContext() {
+  const target = new URLSearchParams(location.search).get("agentTarget") || "profile";
+  return { schema:"vybport.context/1", view:"profile", target, summary:agentContext.innerText.replace(/\s+/g, " ").trim() };
+}
+
+function renderProfileAgentHistory(messages = []) {
+  if (!messages.length) {
+    const selected = selectedAgentConnection();
+    const copy = selected?.kind === "mcp"
+      ? "This agent profile has a private MCP inbox. Messages stay queued here until that agent checks in."
+      : "This private log follows the linked terminal session between your profile, Wander, and garage.";
+    agentMessages.innerHTML = `<div class="agent-message system">${safe(copy)}</div>`;
+    return;
+  }
+  agentMessages.innerHTML = messages.map((message) =>
+    `<div class="agent-message ${message.role === "user" ? "user" : "system"}">${safe(message.body)}</div>`
+  ).join("");
+}
+
+async function loadProfileAgentHistory({ scroll = false } = {}) {
+  const selected = selectedAgentConnection();
+  if (!selected) { renderProfileAgentHistory(); return; }
+  const request = ++agentHistoryRequest;
+  const path = selected.kind === "mcp"
+    ? `/api/agent-profiles/${selected.id}/messages`
+    : `/api/agents/${selected.id}/history`;
+  try {
+    const data = await vybApi(path);
+    if (request !== agentHistoryRequest || selected.key !== document.querySelector("#agentSelect").value) return;
+    renderProfileAgentHistory(data.messages || []);
+    if (scroll) requestAnimationFrame(() => { agentMessages.scrollTop = agentMessages.scrollHeight; });
+  } catch (error) {
+    renderProfileAgentHistory([{ role:"system", body:error.message }]);
+  }
+}
+
+function openAgentDock(project) {
+  agentDock.classList.remove("hidden");
+  agentState.setOpen(true);
+  if (project) {
+    const display = displays.find((item) => item.project === project);
+    agentContext.innerHTML = `<span class="eyebrow">Pinned for your agent</span><b>${display.title}</b><p>${display.description}</p>`;
+  }
+  loadProfileAgentHistory({ scroll:true });
+}
 document.querySelector("#agentDockToggle").addEventListener("click", () => openAgentDock());
-document.querySelector("#closeAgentDock").addEventListener("click", () => agentDock.classList.add("hidden"));
+document.querySelector("#connectAgent").addEventListener("click", () => { openAgentDock(); document.querySelector("#agentSelect").focus(); });
+document.querySelector("#closeAgentDock").addEventListener("click", () => { agentDock.classList.add("hidden"); agentState.setOpen(false); });
 document.querySelector("#displayGrid").addEventListener("click", (event) => { const button = event.target.closest("button[data-display]"); if (!button) return; const display = displays.find((item) => item.project === button.dataset.display); if (button.dataset.displayAction === "agent") { openAgentDock(display.project); toast(`${display.project} is pinned for your own agent.`); } else { window.location.href = `./project.html?project=${encodeURIComponent(display.project.toLowerCase())}`; } });
 async function vybApi(path, options = {}) { const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options }); const data = await response.json(); if (!response.ok) throw new Error(data.error || "VybPort request failed."); return data; }
-async function refreshAgents() { try { const { user } = await vybApi("/api/auth/me"); const account = document.querySelector("#accountLink"); if (!user) { account.href = "./register.html"; account.textContent = "+"; return []; } account.href = "./index.html"; account.textContent = user.display_name.slice(0, 1).toUpperCase(); const { agents } = await vybApi("/api/agents"); const select = document.querySelector("#agentSelect"); select.innerHTML = `<option value="">Choose a linked session</option>${agents.map((agent) => `<option value="${agent.id}">${safe(agent.label)} · ${safe(agent.provider_label || agent.provider)}</option>`).join("")}`; document.querySelector("#agentConnection").innerHTML = agents.length ? `<i style="background:#58b777"></i> ${agents.length} linked terminal session${agents.length === 1 ? "" : "s"}` : `<i></i> terminal session not paired`; return agents; } catch { return []; } }
-document.querySelector("#agentForm").addEventListener("submit", async (event) => { event.preventDefault(); const input = document.querySelector("#agentInput"), agentId = document.querySelector("#agentSelect").value, message = input.value.trim(); if (!message) return; if (!agentId) { toast("Choose or pair a local coding-agent session first."); return; } const packet = agentContext.innerText.replace(/\s+/g, " ").trim(); agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message user">${safe(message)}</div>`); try { const result = await vybApi(`/api/agents/${agentId}/message`, { method: "POST", body: JSON.stringify({ mode:"chat", message: `VybPort context packet:\n${packet}\n\nUser message:\n${message}` }) }); agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message system">${safe(result.reply)}</div>`); input.value = ""; } catch (error) { agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message system">${safe(error.message)}</div>`); } agentMessages.scrollTop = agentMessages.scrollHeight; });
+async function refreshAgents() {
+  try {
+    const { user } = await vybApi("/api/auth/me");
+    const account = document.querySelector("#accountLink");
+    if (!user) { account.href = "./register.html"; account.textContent = "+"; return []; }
+    account.href = "./index.html"; account.textContent = user.display_name.slice(0, 1).toUpperCase();
+    const [localResult, profileResult] = await Promise.all([vybApi("/api/agents"), vybApi("/api/agent-profiles")]);
+    const locals = (localResult.agents || []).map((item) => ({ key:agentState.key("local", item.id), kind:"local", id:item.id, label:item.label, detail:item.provider_label || item.provider }));
+    const profiles = (profileResult.agent_profiles || []).filter((item) => item.credential_status === "active" && (item.scopes || []).includes("session"))
+      .map((item) => ({ key:agentState.key("mcp", item.id), kind:"mcp", id:item.id, label:item.agent_name || item.label, detail:item.live ? "online via MCP" : "MCP inbox", live:Boolean(item.live) }));
+    agentConnections = [...profiles, ...locals];
+    const selected = agentState.choose(agentConnections, "local");
+    const select = document.querySelector("#agentSelect");
+    select.innerHTML = `${profiles.length ? `<optgroup label="MCP agent profiles">${profiles.map((item) => `<option value="${item.key}">${safe(item.label)} · ${safe(item.detail)}</option>`).join("")}</optgroup>` : ""}${locals.length ? `<optgroup label="Linked terminal sessions">${locals.map((item) => `<option value="${item.key}">${safe(item.label)} · ${safe(item.detail)}</option>`).join("")}</optgroup>` : ""}` || `<option value="">No connected agent</option>`;
+    select.value = selected?.key || "";
+    if (selected) agentState.select(selected.key);
+    document.querySelector("#agentConnection").innerHTML = selected
+      ? `<i style="background:#58b777"></i> ${safe(selected.label)} · ${safe(selected.detail)}`
+      : `<i></i> no agent connected`;
+    await loadProfileAgentHistory();
+    return localResult.agents || [];
+  } catch { agentConnections = []; renderProfileAgentHistory(); return []; }
+}
+
+document.querySelector("#agentSelect").addEventListener("change", async (event) => {
+  agentState.select(event.target.value);
+  const selected = selectedAgentConnection();
+  document.querySelector("#agentConnection").innerHTML = selected
+    ? `<i style="background:#58b777"></i> ${safe(selected.label)} · ${safe(selected.detail)}`
+    : `<i></i> no agent connected`;
+  await loadProfileAgentHistory({ scroll:true });
+});
+
+document.querySelector("#agentForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (agentSending) return;
+  const input = document.querySelector("#agentInput"), selected = selectedAgentConnection(), message = input.value.trim();
+  if (!message) return;
+  if (!selected) { toast("Choose or connect an agent first."); return; }
+  agentSending = true;
+  agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message user">${safe(message)}</div>`);
+  agentMessages.scrollTop = agentMessages.scrollHeight;
+  try {
+    if (selected.kind === "mcp") {
+      await vybApi(`/api/agent-profiles/${selected.id}/send`, { method:"POST", body:JSON.stringify({ kind:"task", body:message, context:profileAgentContext() }) });
+      toast(selected.live ? "Sent to the agent inbox." : "Queued until that agent checks in.");
+    } else {
+      await vybApi(`/api/agents/${selected.id}/message`, { method:"POST", body:JSON.stringify({ mode:"chat", message, context:profileAgentContext() }) });
+      toast("Your linked terminal agent replied.");
+    }
+    input.value = "";
+    await loadProfileAgentHistory({ scroll:true });
+  } catch (error) {
+    await loadProfileAgentHistory({ scroll:true });
+    agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message system">${safe(error.message)}</div>`);
+  } finally { agentSending = false; }
+});
 async function agentProviders() { try { return (await vybApi("/api/agents/providers")).providers; } catch { return []; } }
 function chooseProvider(options, question) { if (!options.length) { toast("No coding agent is available to link."); return null; } if (options.length === 1) return options[0]; const menu = options.map((item, index) => `${index + 1}. ${item.label}${item.binary && !item.detected ? " (not on PATH)" : ""}`).join("\n"); const picked = window.prompt(`${question}\n\n${menu}`, "1"); if (!picked) return null; const provider = options[Number(picked) - 1]; if (!provider) { toast("Pick one of the listed numbers."); return null; } return provider; }
-document.querySelector("#pairAgent").addEventListener("click", async () => { const me = await vybApi("/api/auth/me"); if (!me.user) { location.href = "./register.html"; return; } const provider = chooseProvider(await agentProviders(), "Which coding agent is this session running in?"); if (!provider) return; const label = window.prompt(`Name this ${provider.label} session (for example, ${provider.label} · Habitus)`); if (!label) return; const thread_id = window.prompt(`Paste the exact ${provider.id_label} to link`); if (!thread_id) return; let command = ""; if (provider.needs_command) { command = window.prompt(`Command VybPort should run.\n{session}, {message} and {output} are filled in as whole arguments.`, "my-agent --resume {session} {message}") || ""; } try { await vybApi("/api/agents", { method:"POST", body:JSON.stringify({ provider: provider.key, label, thread_id, command }) }); await refreshAgents(); toast(`${label} linked.`); } catch (error) { toast(error.message); } });
-document.querySelector("#startAgent").addEventListener("click", async () => { const me = await vybApi("/api/auth/me"); if (!me.user) { location.href = "./register.html"; return; } const provider = chooseProvider((await agentProviders()).filter((item) => item.starts && item.detected), "Which coding agent should VybPort open a session in?"); if (!provider) return; const packet = agentContext.innerText.replace(/\s+/g, " ").trim(); const input = document.querySelector("#agentInput"); const prompt = input.value.trim() || "Introduce yourself briefly and tell me how you can help inspect this VybPort item."; try { toast(`Opening a ${provider.label} session…`); const result = await vybApi("/api/agents/start", { method:"POST", body:JSON.stringify({ provider: provider.key, message:`VybPort context packet:\n${packet}\n\nUser message:\n${prompt}` }) }); await refreshAgents(); document.querySelector("#agentSelect").value = result.agent.id; agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message system">${safe(result.reply)}</div>`); input.value = ""; agentMessages.scrollTop = agentMessages.scrollHeight; toast(`${result.agent.label} linked.`); } catch (error) { agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message system">${safe(error.message)}</div>`); toast(error.message); } });
+document.querySelector("#pairAgent").addEventListener("click", async () => { const me = await vybApi("/api/auth/me"); if (!me.user) { location.href = "./register.html"; return; } const provider = chooseProvider(await agentProviders(), "Which coding agent is this session running in?"); if (!provider) return; const label = window.prompt(`Name this ${provider.label} session (for example, ${provider.label} · Habitus)`); if (!label) return; const thread_id = window.prompt(`Paste the exact ${provider.id_label} to link`); if (!thread_id) return; let command = ""; if (provider.needs_command) { command = window.prompt(`Command VybPort should run.\n{session}, {message} and {output} are filled in as whole arguments.`, "my-agent --resume {session} {message}") || ""; } try { const result = await vybApi("/api/agents", { method:"POST", body:JSON.stringify({ provider: provider.key, label, thread_id, command }) }); agentState.select(agentState.key("local", result.agent.id)); await refreshAgents(); await loadProfileAgentHistory({ scroll:true }); toast(`${label} linked.`); } catch (error) { toast(error.message); } });
+document.querySelector("#startAgent").addEventListener("click", async () => { const me = await vybApi("/api/auth/me"); if (!me.user) { location.href = "./register.html"; return; } const provider = chooseProvider((await agentProviders()).filter((item) => item.starts && item.detected), "Which coding agent should VybPort open a session in?"); if (!provider) return; const input = document.querySelector("#agentInput"); const prompt = input.value.trim() || "Introduce yourself briefly and tell me how you can help inspect this VybPort item."; try { toast(`Opening a ${provider.label} session…`); const result = await vybApi("/api/agents/start", { method:"POST", body:JSON.stringify({ provider:provider.key, message:prompt, context:profileAgentContext() }) }); agentState.select(agentState.key("local", result.agent.id)); await refreshAgents(); input.value = ""; await loadProfileAgentHistory({ scroll:true }); toast(`${result.agent.label} linked.`); } catch (error) { agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message system">${safe(error.message)}</div>`); toast(error.message); } });
 
 /* The featured display is the project's rack, not a folder listing: modules mounted and cabled together. */
 const FEATURE_RACK = { modules: [
@@ -191,7 +299,7 @@ document.querySelector("#mcpMint")?.addEventListener("submit", async (event) => 
     }) });
     showAgentCredential(result);
     event.target.reset();
-    await loadTokens();
+    await Promise.all([loadTokens(), refreshAgents()]);
   } catch (error) { toast(error.message); }
 });
 document.querySelector("#mcpList")?.addEventListener("click", async (event) => {
@@ -199,16 +307,17 @@ document.querySelector("#mcpList")?.addEventListener("click", async (event) => {
   if (!button) return;
   const send = button.dataset.send;
   if (send) {
-    const body = window.prompt("What should this agent go and do?");
-    if (!body) return;
-    try { const result = await vybApi(`/api/agent-profiles/${send}/send`, { method: "POST", body: JSON.stringify({ body }) });
-      toast(result.note); await loadTokens(); } catch (error) { toast(error.message); }
+    agentState.select(agentState.key("mcp", send));
+    await refreshAgents();
+    openAgentDock();
+    document.querySelector("#agentInput").focus();
+    toast("Agent selected. Continue in the shared conversation below.");
     return;
   }
   if (button.dataset.rotate) {
     if (!window.confirm("Rotate this agent's API key? The old key will stop working immediately.")) return;
     try { const result = await vybApi(`/api/agent-profiles/${button.dataset.rotate}/rotate`, { method:"POST", body:JSON.stringify({}) });
-      showAgentCredential(result); await loadTokens(); toast("Agent API key rotated."); } catch (error) { toast(error.message); }
+      showAgentCredential(result); await Promise.all([loadTokens(), refreshAgents()]); toast("Agent API key rotated."); } catch (error) { toast(error.message); }
     return;
   }
   if (button.dataset.visibility) {
@@ -218,7 +327,7 @@ document.querySelector("#mcpList")?.addEventListener("click", async (event) => {
   }
   if (!button.dataset.revoke) return;
   if (!window.confirm("Revoke this agent's API access? Its attributed history will remain.")) return;
-  try { await vybApi(`/api/agent-profiles/${button.dataset.revoke}/revoke`, { method: "POST", body: JSON.stringify({}) }); await loadTokens(); toast("Agent API access revoked."); }
+  try { await vybApi(`/api/agent-profiles/${button.dataset.revoke}/revoke`, { method: "POST", body: JSON.stringify({}) }); await Promise.all([loadTokens(), refreshAgents()]); toast("Agent API access revoked."); }
   catch (error) { toast(error.message); }
 });
 document.querySelector("#mcpIssued")?.addEventListener("click", async (event) => {
@@ -229,3 +338,12 @@ document.querySelector("#mcpIssued")?.addEventListener("click", async (event) =>
   catch { toast("Copy was blocked; select the key manually."); }
 });
 loadTokens();
+const initialAgentParams = new URLSearchParams(location.search);
+const initialAgentTarget = initialAgentParams.get("agentTarget");
+if (initialAgentTarget) {
+  const label = initialAgentTarget.replace(/[:_-]+/g, " ").trim();
+  agentContext.innerHTML = `<span class="eyebrow">Pinned from another room</span><b>${safe(label)}</b><p>This context brought you to the same companion conversation.</p>`;
+}
+refreshAgents().then(() => {
+  if (agentState.isOpen() || initialAgentTarget || initialAgentParams.get("agent") === "open") openAgentDock();
+});

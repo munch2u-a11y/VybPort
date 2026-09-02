@@ -8,8 +8,88 @@ document.querySelectorAll(".project-tabs button").forEach((button) => button.add
 document.querySelectorAll("[data-tab-jump]").forEach((button) => button.addEventListener("click", () => document.querySelector(`.project-tabs [data-tab="${button.dataset.tabJump}"]`).click()));
 document.querySelector("#projectLike").addEventListener("click", async () => { try { renderSocial(await api("/api/social/like", {method:"POST",body:JSON.stringify({target})})); } catch (error) { toast(error.message); } });
 document.querySelector("#commentForm").addEventListener("submit", async (event) => { event.preventDefault(); const input = document.querySelector("#commentText"); try { renderSocial(await api("/api/social/comment", {method:"POST",body:JSON.stringify({target,body:input.value})})); input.value = ""; toast("Posted to the workbench."); } catch (error) { toast(error.message); } });
-const openAgent = () => { location.href = "./index.html?agentTarget=project:habitus"; };
-document.querySelectorAll("#openAgent,#pinProject,#pinInside").forEach((button) => button.addEventListener("click", openAgent)); document.querySelector("#closeAgent").addEventListener("click", () => document.querySelector("#projectAgentDock").classList.add("hidden"));
+const agentState = window.VybAgentState;
+let projectAgentConnections = [], projectAgentHistoryRequest = 0, projectAgentSending = false, pinnedProjectModule = null;
+const selectedProjectAgent = () => projectAgentConnections.find((item) => item.key === document.querySelector("#projectAgentSelect").value) || null;
+const projectContext = () => ({ schema:"vybport.context/1", view:"public-project", project:{ slug:"habitus", name:"Habitus" }, module:pinnedProjectModule ? { name:pinnedProjectModule.name, role:pinnedProjectModule.role, language:pinnedProjectModule.lang } : null });
+
+function renderProjectAgentHistory(messages = []) {
+  const node = document.querySelector("#projectAgentMessages");
+  if (!messages.length) {
+    const selected = selectedProjectAgent();
+    node.innerHTML = `<div class="agent-message system">${escapeHtml(selected?.kind === "mcp" ? "This agent profile’s private MCP inbox is ready." : "This terminal conversation follows you between VybPort rooms.")}</div>`;
+    return;
+  }
+  node.innerHTML = messages.map((message) => `<div class="agent-message ${message.role === "user" ? "user" : "system"}">${escapeHtml(message.body)}</div>`).join("");
+}
+
+async function loadProjectAgentHistory({ scroll = false } = {}) {
+  const selected = selectedProjectAgent();
+  if (!selected) { renderProjectAgentHistory(); return; }
+  const request = ++projectAgentHistoryRequest;
+  const path = selected.kind === "mcp" ? `/api/agent-profiles/${selected.id}/messages` : `/api/agents/${selected.id}/history`;
+  try {
+    const data = await api(path);
+    if (request !== projectAgentHistoryRequest || selected.key !== document.querySelector("#projectAgentSelect").value) return;
+    renderProjectAgentHistory(data.messages || []);
+    if (scroll) requestAnimationFrame(() => { const node = document.querySelector("#projectAgentMessages"); node.scrollTop = node.scrollHeight; });
+  } catch (error) { renderProjectAgentHistory([{ role:"system", body:error.message }]); }
+}
+
+function updateProjectAgentIdentity() {
+  const selected = selectedProjectAgent();
+  document.querySelector("#projectAgentName").textContent = selected?.label || "Your agent";
+  document.querySelector("#projectAgentState").innerHTML = selected ? `<i style="background:#58b777"></i> ${escapeHtml(selected.detail)}` : "<i></i> no agent connected";
+}
+
+async function loadProjectAgents() {
+  try {
+    const [localResult, profileResult] = await Promise.all([api("/api/agents"), api("/api/agent-profiles")]);
+    const locals = (localResult.agents || []).map((item) => ({ key:agentState.key("local", item.id), kind:"local", id:item.id, label:item.label, detail:item.provider_label || item.provider }));
+    const profiles = (profileResult.agent_profiles || []).filter((item) => item.credential_status === "active" && (item.scopes || []).includes("session"))
+      .map((item) => ({ key:agentState.key("mcp", item.id), kind:"mcp", id:item.id, label:item.agent_name || item.label, detail:item.live ? "online via MCP" : "MCP inbox" }));
+    projectAgentConnections = [...profiles, ...locals];
+    const selected = agentState.choose(projectAgentConnections, "local"), select = document.querySelector("#projectAgentSelect");
+    select.innerHTML = `${profiles.length ? `<optgroup label="MCP agent profiles">${profiles.map((item) => `<option value="${item.key}">${escapeHtml(item.label)} · ${escapeHtml(item.detail)}</option>`).join("")}</optgroup>` : ""}${locals.length ? `<optgroup label="Linked terminal sessions">${locals.map((item) => `<option value="${item.key}">${escapeHtml(item.label)} · ${escapeHtml(item.detail)}</option>`).join("")}</optgroup>` : ""}` || `<option value="">No connected agent</option>`;
+    select.value = selected?.key || "";
+    if (selected) agentState.select(selected.key);
+    updateProjectAgentIdentity();
+    await loadProjectAgentHistory();
+  } catch { projectAgentConnections = []; updateProjectAgentIdentity(); renderProjectAgentHistory(); }
+}
+
+function openProjectAgent(module = null) {
+  if (module) {
+    pinnedProjectModule = module;
+    document.querySelector("#projectAgentContext").innerHTML = `<span class="eyebrow">Pinned module</span><b>Habitus · ${escapeHtml(module.name)}</b><p>${escapeHtml(module.role)} · ${escapeHtml(module.lang || "mixed")} · inspect this public capsule only.</p>`;
+  }
+  document.querySelector("#projectAgentDock").classList.remove("hidden");
+  agentState.setOpen(true);
+  loadProjectAgentHistory({ scroll:true });
+}
+
+function closeProjectAgent() { document.querySelector("#projectAgentDock").classList.add("hidden"); agentState.setOpen(false); }
+document.querySelectorAll("#openAgent,#pinProject,#pinInside").forEach((button) => button.addEventListener("click", () => openProjectAgent()));
+document.querySelector("#closeAgent").addEventListener("click", closeProjectAgent);
+document.querySelector("#projectAgentSelect").addEventListener("change", async (event) => { agentState.select(event.target.value); updateProjectAgentIdentity(); await loadProjectAgentHistory({ scroll:true }); });
+document.querySelector("#pairFromProject").addEventListener("click", () => { location.href = "./index.html?agent=open&agentTarget=project:habitus"; });
+document.querySelector("#projectAgentForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (projectAgentSending) return;
+  const selected = selectedProjectAgent(), input = document.querySelector("#projectAgentInput"), message = input.value.trim();
+  if (!message) return;
+  if (!selected) { toast("Connect an agent from your profile first."); return; }
+  projectAgentSending = true;
+  document.querySelector("#projectAgentMessages").insertAdjacentHTML("beforeend", `<div class="agent-message user">${escapeHtml(message)}</div>`);
+  try {
+    if (selected.kind === "mcp") await api(`/api/agent-profiles/${selected.id}/send`, { method:"POST", body:JSON.stringify({ kind:"review", body:message, context:projectContext() }) });
+    else await api(`/api/agents/${selected.id}/message`, { method:"POST", body:JSON.stringify({ mode:"chat", message, context:projectContext() }) });
+    input.value = "";
+    await loadProjectAgentHistory({ scroll:true });
+    toast(selected.kind === "mcp" ? "Sent to the agent inbox." : "Your linked terminal agent replied.");
+  } catch (error) { await loadProjectAgentHistory({ scroll:true }); toast(error.message); }
+  finally { projectAgentSending = false; }
+});
 document.querySelectorAll("#cloneCapsule,#cloneInside").forEach((button) => button.addEventListener("click", () => toast("Capsule selected—your local bridge will choose a workspace next.")));
 document.querySelector("#arenaLaunch").addEventListener("click", () => { document.querySelector('.project-tabs [data-tab="evidence"]').click(); toast("Review the run contract before entering the arena."); });
 document.querySelector("#watchEvidence").addEventListener("click", () => toast("Run trace viewer would open with receipts and read-backs.")); document.querySelector("#prepareRun").addEventListener("click", () => toast("Arena setup begins with an explicit benchmark contract."));
@@ -43,7 +123,8 @@ async function loadRack() {
   origin.textContent = note;
   renderLegend(data.modules);
   VybRack.render(mount, data, {
-    onAgent: (module) => { location.href = `./index.html?agentTarget=project:${encodeURIComponent(module.id)}`; },
+    onAgent: (module) => openProjectAgent(module),
   });
 }
 loadRack();
+loadProjectAgents().then(() => { if (agentState.isOpen()) openProjectAgent(); });

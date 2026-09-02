@@ -3,6 +3,7 @@ const $=selector=>document.querySelector(selector);
 const safe=value=>String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 const toast=text=>{const node=$('#toast');node.textContent=text;node.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>node.classList.remove('show'),2800)};
 async function api(path,options={}){const response=await fetch(path,{headers:{'Content-Type':'application/json'},...options});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.error||'VybPort request failed');return data}
+const agentState=window.VybAgentState;
 
 let hood=null,garage=null,mine=[],project=null,activeModule=null,comparison=null,workspaces=[],gitState=null,currentView='modules';
 let linkedAgents=[],agentProfiles=[],activeAgentConnection='',agentHistory=[],agentHistoryPrimed=false,agentSending=false,agentUnread=0;
@@ -33,9 +34,9 @@ function setAgentUnread(value){
 function renderAgentConnections(){
  const choices=agentChoices(),profiles=choices.filter(item=>item.kind==='mcp'),locals=choices.filter(item=>item.kind==='local'),select=$('#garageAgentSelect');
  if(!choices.some(item=>item.key===activeAgentConnection)){
-  let saved='';try{saved=localStorage.getItem('vybport.garage.agent')||''}catch{}
-  activeAgentConnection=choices.some(item=>item.key===saved)?saved:(profiles.find(item=>item.live)||locals[0]||profiles[0]||{}).key||''
+  activeAgentConnection=agentState.choose(choices,'local')?.key||''
  }
+ if(activeAgentConnection)agentState.select(activeAgentConnection);
  select.innerHTML=`${profiles.length?`<optgroup label="MCP agent profiles">${profiles.map(item=>`<option value="${item.key}">${safe(item.label)}${item.live?' · online':' · inbox'}</option>`).join('')}</optgroup>`:''}${locals.length?`<optgroup label="Linked terminal sessions">${locals.map(item=>`<option value="${item.key}">${safe(item.label)} · linked</option>`).join('')}</optgroup>`:''}`;
  select.value=activeAgentConnection;
  $('#garageAgentBubble').hidden=!choices.length||!garage;
@@ -121,17 +122,21 @@ async function loadGarageAgentHistory({quiet=false,notify=true,scroll=false}={})
 }
 
 async function loadGarageAgents(){
+ const remembered=agentState.selected();
  const [localResult,profileResult]=await Promise.all([api('/api/agents').catch(()=>({agents:[]})),api('/api/agent-profiles').catch(()=>({agent_profiles:[]}))]);
  linkedAgents=localResult.agents||[];agentProfiles=profileResult.agent_profiles||[];renderAgentConnections();
- if(activeAgentConnection)await loadGarageAgentHistory({quiet:true,notify:false})
+ if(activeAgentConnection)await loadGarageAgentHistory({quiet:true,notify:false});
+ if(!remembered&&selectedAgentConnection()?.kind==='local'&&agentHistory.length)agentState.setOpen(true)
 }
 
 async function openGarageAgent(){
- if(!selectedAgentConnection())return;
+ if(!selectedAgentConnection()){location.href='./index.html?agent=open';return}
+ agentState.setOpen(true);
  $('#garageAgentDock').hidden=false;document.body.classList.add('agent-chat-open');$('#garageAgentBubble').setAttribute('aria-expanded','true');setAgentUnread(0);refreshAgentIdentity();refreshAgentContextCard();await loadGarageAgentHistory({quiet:true,notify:false,scroll:true});$('#garageAgentInput').focus()
 }
 
 function closeGarageAgent(){
+ agentState.setOpen(false);
  $('#garageAgentDock').hidden=true;document.body.classList.remove('agent-chat-open');$('#garageAgentBubble').setAttribute('aria-expanded','false')
 }
 
@@ -414,7 +419,8 @@ async function load(){
  try{mine=(await api('/api/garages?mine=1')).garages}catch{mine=[]}
  garage=mine.find(item=>item.neighborhood===hood.slug)||null;
  if(garage){const params=new URLSearchParams(location.search),wanted=Number(params.get('project'));project=garage.projects.find(item=>item.id===wanted)||garage.flagship||garage.projects[0];const slot=params.get('module');activeModule=moduleFor(project,slot)}
- renderStudio();await Promise.all([loadWorkspaces(),loadGarageAgents()]);if(activeModule)await loadOwnFiles(project,activeModule);refreshGit()
+ renderStudio();await Promise.all([loadWorkspaces(),loadGarageAgents()]);if(activeModule)await loadOwnFiles(project,activeModule);refreshGit();
+ const params=new URLSearchParams(location.search);if(activeAgentConnection&&(agentState.isOpen()||params.get('agent')==='open'))await openGarageAgent()
 }
 
 $('#openForm').onsubmit=async event=>{event.preventDefault();try{const {user}=await api('/api/auth/me');if(!user){location.href='./register.html';return}const result=await api('/api/garages',{method:'POST',body:JSON.stringify({neighborhood:hood.slug,name:$('#openName').value.trim(),tagline:$('#openTagline').value.trim(),tags:[...document.querySelectorAll('#openTags input:checked')].map(input=>input.value)})});mine=(await api('/api/garages?mine=1')).garages;garage=result.garage;project=garage.flagship||garage.projects[0];renderStudio();toast(`${garage.name} is open.`)}catch(error){toast(error.message)}};
@@ -450,8 +456,9 @@ $('#stageRows').onchange=async event=>{if(!event.target.dataset.file)return;try{
 $('#openCommit').onclick=async()=>{const message=prompt('Local commit message');if(!message)return;try{const result=await api('/api/git/commit',{method:'POST',body:JSON.stringify({message})});refreshGit();toast(`Committed ${result.commit}`)}catch(error){toast(error.message)}};
 
 $('#garageAgentBubble').onclick=openGarageAgent;
+$('#garageAgentTopToggle').onclick=openGarageAgent;
 $('#closeGarageAgent').onclick=closeGarageAgent;
-$('#garageAgentSelect').onchange=async event=>{activeAgentConnection=event.target.value;try{localStorage.setItem('vybport.garage.agent',activeAgentConnection)}catch{}agentHistory=[];agentHistoryPrimed=false;setAgentUnread(0);refreshAgentIdentity();renderAgentHistory();await loadGarageAgentHistory({quiet:false,notify:false,scroll:true})};
+$('#garageAgentSelect').onchange=async event=>{activeAgentConnection=agentState.select(event.target.value);agentHistory=[];agentHistoryPrimed=false;setAgentUnread(0);refreshAgentIdentity();renderAgentHistory();await loadGarageAgentHistory({quiet:false,notify:false,scroll:true})};
 $('#refreshAgentContext').onclick=()=>{refreshAgentContextCard();toast('The current workshop view will travel with your next message.')};
 document.querySelector('.garage-agent-prompts').onclick=event=>{const button=event.target.closest('[data-agent-prompt]');if(!button||button.disabled)return;$('#garageAgentInput').value=promptStarter(button.dataset.agentPrompt);$('#garageAgentInput').focus()};
 $('#garageAgentForm').onsubmit=sendGarageAgent;

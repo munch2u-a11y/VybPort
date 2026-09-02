@@ -1648,14 +1648,28 @@ def agent_context_prompt(message: str, context: str) -> str:
 
 
 def agent_chat_payload(row: sqlite3.Row) -> dict[str, object]:
+    body = row["body"]
     context: object = row["context"]
+    # Early UI builds embedded the context packet in the visible message. Keep those durable
+    # rows, but project them through the same clean body/context boundary as current messages.
+    if not context:
+        for prefix in ("VybPort context packet:\n", "VybPort public context:\n"):
+            if not body.startswith(prefix):
+                continue
+            legacy = body[len(prefix):]
+            marker = "\n\nUser message:\n"
+            if marker in legacy:
+                context, body = legacy.split(marker, 1)
+            elif "\n\n" in legacy:
+                context, body = legacy.split("\n\n", 1)
+            break
     if context:
         try:
             context = json.loads(context)
         except (json.JSONDecodeError, TypeError):
             pass
     return {
-        "id": row["id"], "role": row["role"], "body": row["body"],
+        "id": row["id"], "role": row["role"], "body": body,
         "context": context, "status": row["status"], "created_at": row["created_at"],
     }
 
@@ -3197,17 +3211,23 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                 initial_message = payload.get("message")
                 if not isinstance(initial_message, str) or not 1 <= len(initial_message.strip()) <= 6000:
                     raise ValueError("Start the local agent chat with a message between 1 and 6000 characters.")
+                context = clean_agent_context(payload.get("context"))
                 if not spec["start"]:
                     raise ValueError(f"VybPort cannot open a {spec['label']} session for you — link one you already have running.")
                 if not installed(spec):
                     raise ValueError(f"{spec['label']} is not on this machine's PATH.")
-                thread_id, reply = agent_turn(provider, spec, "", initial_message.strip(), "")
+                thread_id, reply = agent_turn(
+                    provider, spec, "", agent_context_prompt(initial_message.strip(), context), ""
+                )
                 if not thread_id:
                     raise ValueError(f"{spec['label']} answered but did not return a resumable session id, so VybPort did not link it.")
                 with db() as connection:
                     cursor = connection.execute("INSERT INTO agents(user_id,provider,label,thread_id,command,created_at) VALUES(?,?,?,?,?,?)", (user["id"], provider, f"{spec['label']} · VybPort chat", thread_id, "", int(time.time())))
                     agent = connection.execute("SELECT id,provider,label,thread_id FROM agents WHERE id=?", (cursor.lastrowid,)).fetchone()
-                    record_agent_chat(connection, user["id"], agent["id"], "user", initial_message.strip(), status="delivered")
+                    record_agent_chat(
+                        connection, user["id"], agent["id"], "user", initial_message.strip(),
+                        context=context, status="delivered",
+                    )
                     record_agent_chat(
                         connection, user["id"], agent["id"], "agent",
                         reply or f"{spec['label']} started the session without a final text response.",
