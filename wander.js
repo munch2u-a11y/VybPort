@@ -28,6 +28,8 @@ const $=s=>document.querySelector(s);
 const safe=v=>String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),2400)};
 async function api(path,options={}){const response=await fetch(path,{headers:{'Content-Type':'application/json'},...options});const data=await response.json();if(!response.ok)throw new Error(data.error||'VybPort request failed');return data}
+const agentState=window.VybAgentState;
+let agentConnections=[],agentHistoryRequest=0,agentSending=false;
 
 /* Proximity: shared build interests pull a garage closer to where you are standing. */
 function shared(item){return item.tags.filter(tag=>myFocus.includes(tag))}
@@ -166,6 +168,19 @@ function pin(item){pinned=item;openDock();
 
 /* Your own coding agent, whichever one it is: the server reports which CLIs this machine has,
    and anything it does not know about links by the command its own CLI takes. */
+function selectedWanderAgent(){return agentConnections.find(item=>item.key===$('#wanderAgentSelect').value)||null}
+function wanderAgentContext(){return{schema:'vybport.context/1',view:'wander',neighborhood:hood?.slug||'',pinned:pinned?{target:pinned.id,owner:pinned.owner,display:pinned.display,post:pinned.post}:null}}
+function renderWanderAgentHistory(messages=[]){
+ const node=$('#agentMessages');
+ if(!messages.length){const selected=selectedWanderAgent(),copy=selected?.kind==='mcp'?'This agent profile has a private MCP inbox. Messages wait here until it checks in.':'This private terminal conversation follows you into your garage.';node.innerHTML=`<div class="sidecar-message system">${safe(copy)}</div>`;return}
+ node.innerHTML=messages.map(message=>`<div class="sidecar-message ${message.role==='user'?'user':'system'}">${safe(message.body)}</div>`).join('')
+}
+async function loadWanderAgentHistory({scroll=false}={}){
+ const selected=selectedWanderAgent();if(!selected){renderWanderAgentHistory();return}
+ const request=++agentHistoryRequest,path=selected.kind==='mcp'?`/api/agent-profiles/${selected.id}/messages`:`/api/agents/${selected.id}/history`;
+ try{const data=await api(path);if(request!==agentHistoryRequest||selected.key!==$('#wanderAgentSelect').value)return;renderWanderAgentHistory(data.messages||[]);if(scroll)requestAnimationFrame(()=>{$('#agentMessages').scrollTop=$('#agentMessages').scrollHeight})}
+ catch(error){renderWanderAgentHistory([{role:'system',body:error.message}])}
+}
 async function loadProviders(){try{providers=(await api('/api/agents/providers')).providers}catch{providers=[]}renderProviders()}
 function renderProviders(){const startable=providers.filter(item=>item.starts&&item.detected),missing=providers.filter(item=>item.starts&&!item.detected);
  $('#providerButtons').innerHTML=[
@@ -183,12 +198,11 @@ function syncLinkForm(){const item=linkProvider();if(!item)return;
 function openLinkForm(){if(!providers.length){toast('The local VybPort service is not answering, so no coding agents can be listed.');return}$('#linkProvider').innerHTML=providers.map(item=>`<option value="${item.key}">${safe(item.label)}${item.binary&&!item.detected?' · not found':''}</option>`).join('');syncLinkForm();$('#linkAgentForm').hidden=false;$('#linkLabel').focus()}
 async function startAgent(provider){const item=providers.find(value=>value.key===provider);
  try{const {user}=await api('/api/auth/me');if(!user){location.href='./register.html';return}
+  openDock();
   $('#composeNote').textContent=`Opening a ${item.label} session…`;
   document.querySelectorAll('#providerButtons button').forEach(button=>button.disabled=true);
-  const context=pinned?`${pinned.owner} · ${pinned.display}\n${pinned.post}`:'The VybPort street.';
-  const result=await api('/api/agents/start',{method:'POST',body:JSON.stringify({provider,message:`VybPort public context:\n${context}\n\nIntroduce yourself briefly and offer to inspect this item with me.`})});
-  await loadAgents();$('#wanderAgentSelect').value=result.agent.id;
-  $('#agentMessages').insertAdjacentHTML('beforeend',`<div class="sidecar-message system">${safe(result.reply)}</div>`);
+  const result=await api('/api/agents/start',{method:'POST',body:JSON.stringify({provider,message:'Introduce yourself briefly and offer to inspect this item with me.',context:wanderAgentContext()})});
+  agentState.select(agentState.key('local',result.agent.id));await loadAgents();await loadWanderAgentHistory({scroll:true});
   toast(`${result.agent.label} is walking with you.`)}
  catch(error){toast(error.message)}
  finally{$('#composeNote').textContent='';renderProviders()}}
@@ -196,14 +210,19 @@ async function startAgent(provider){const item=providers.find(value=>value.key==
 /* Local account + agent session: nothing leaves your machine unless you pin it. */
 async function loadBadges(){try{const result=await api('/api/badges');badges=new Map(result.badges.map(badge=>[badge.target,badge]));resetStreet()}catch{}}
 async function loadAgents(){try{const {user}=await api('/api/auth/me');
- if(!user){$('#agentState').textContent='Create a local account to walk with a terminal session.';return}
+ if(!user){agentConnections=[];$('#agentState').textContent='Create a local account to walk with an agent.';renderWanderAgentHistory();return}
  $('#agentAccountLink').textContent=`Signed in as ${user.display_name}`;$('#agentAccountLink').href='./index.html';
- const result=await api('/api/agents');
- $('#wanderAgentSelect').innerHTML=`<option value="">Choose a linked session</option>${result.agents.map(agent=>`<option value="${agent.id}">${safe(agent.label)} · ${safe(agent.provider_label)}</option>`).join('')}`;
- $('#agentState').textContent=result.agents.length?`${result.agents.length} local session${result.agents.length===1?'':'s'} linked. They stay on your machine.`:'No session linked yet — start one below, or link the one already open in your terminal.'}
- catch{$('#agentState').textContent='Local agent service unavailable.'}}
-function openDock(){$('#agentSidecar').hidden=false}
-function closeDock(){$('#agentSidecar').hidden=true}
+ const [localResult,profileResult]=await Promise.all([api('/api/agents'),api('/api/agent-profiles')]);
+ const locals=(localResult.agents||[]).map(item=>({key:agentState.key('local',item.id),kind:'local',id:item.id,label:item.label,detail:item.provider_label||item.provider}));
+ const profiles=(profileResult.agent_profiles||[]).filter(item=>item.credential_status==='active'&&(item.scopes||[]).includes('session')).map(item=>({key:agentState.key('mcp',item.id),kind:'mcp',id:item.id,label:item.agent_name||item.label,detail:item.live?'online via MCP':'MCP inbox'}));
+ agentConnections=[...profiles,...locals];const selected=agentState.choose(agentConnections,'local'),select=$('#wanderAgentSelect');
+ select.innerHTML=`${profiles.length?`<optgroup label="MCP agent profiles">${profiles.map(item=>`<option value="${item.key}">${safe(item.label)} · ${safe(item.detail)}</option>`).join('')}</optgroup>`:''}${locals.length?`<optgroup label="Linked terminal sessions">${locals.map(item=>`<option value="${item.key}">${safe(item.label)} · ${safe(item.detail)}</option>`).join('')}</optgroup>`:''}`||'<option value="">No connected agent</option>';
+ select.value=selected?.key||'';if(selected)agentState.select(selected.key);
+ $('#agentState').textContent=selected?`${selected.label} · ${selected.detail}. This conversation follows you into the garage.`:'No agent linked yet — start one below, or link the one already open in your terminal.';
+ await loadWanderAgentHistory()}
+ catch{agentConnections=[];$('#agentState').textContent='Local agent service unavailable.';renderWanderAgentHistory()}}
+function openDock(){$('#agentSidecar').hidden=false;agentState.setOpen(true);loadWanderAgentHistory({scroll:true})}
+function closeDock(){$('#agentSidecar').hidden=true;agentState.setOpen(false)}
 
 $('#wanderSearch').oninput=event=>{query=event.target.value;resetStreet()};
 document.querySelector('.wander-controls').onclick=event=>{const button=event.target.closest('button');if(!button)return;
@@ -220,17 +239,18 @@ $('#streetFeed').onclick=async event=>{const button=event.target.closest('button
  if(button.dataset.comment){const body=window.prompt(`Leave ${item.owner} a useful public note`);if(!body)return;
   try{await api('/api/social/comment',{method:'POST',body:JSON.stringify({target:item.id,body})});toast('Your note is now on that garage’s public thread.')}catch(error){toast(error.message)}return}
  if(button.dataset.like)try{const social=await api('/api/social/like',{method:'POST',body:JSON.stringify({target:item.id})});button.textContent=`⚡ ${social.likes} bolts`}catch(error){toast(error.message)}};
-$('#agentDockToggle').onclick=()=>{const dock=$('#agentSidecar');dock.hidden=!dock.hidden};
+$('#agentDockToggle').onclick=()=>{$('#agentSidecar').hidden?openDock():closeDock()};
 $('#agentDockClose').onclick=closeDock;
 $('#wanderAgentForm').onsubmit=async event=>{event.preventDefault();
- const input=$('#wanderAgentInput'),agentId=$('#wanderAgentSelect').value,message=input.value.trim();if(!message)return;
- if(!agentId){toast('Choose a linked session, or start a new local chat.');return}
- const context=pinned?`${pinned.owner} · ${pinned.display}\n${pinned.post}`:'No public VybPort item pinned.';
+ if(agentSending)return;const input=$('#wanderAgentInput'),selected=selectedWanderAgent(),message=input.value.trim();if(!message)return;
+ if(!selected){toast('Choose or connect an agent first.');return}agentSending=true;agentState.setOpen(true);
  $('#agentMessages').insertAdjacentHTML('beforeend',`<div class="sidecar-message user">${safe(message)}</div>`);
- try{const result=await api(`/api/agents/${agentId}/message`,{method:'POST',body:JSON.stringify({mode:'chat',message:`VybPort public context:\n${context}\n\nUser message:\n${message}`})});
-  $('#agentMessages').insertAdjacentHTML('beforeend',`<div class="sidecar-message system">${safe(result.reply)}</div>`);input.value=''}
- catch(error){$('#agentMessages').insertAdjacentHTML('beforeend',`<div class="sidecar-message system">${safe(error.message)}</div>`)}
- $('#agentMessages').scrollTop=$('#agentMessages').scrollHeight};
+ try{if(selected.kind==='mcp')await api(`/api/agent-profiles/${selected.id}/send`,{method:'POST',body:JSON.stringify({kind:'task',body:message,context:wanderAgentContext()})});
+  else await api(`/api/agents/${selected.id}/message`,{method:'POST',body:JSON.stringify({mode:'chat',message,context:wanderAgentContext()})});
+  input.value='';await loadWanderAgentHistory({scroll:true});toast(selected.kind==='mcp'?'Sent to the agent inbox.':'Your linked terminal agent replied.')}
+ catch(error){await loadWanderAgentHistory({scroll:true});$('#agentMessages').insertAdjacentHTML('beforeend',`<div class="sidecar-message system">${safe(error.message)}</div>`)}
+ finally{agentSending=false}};
+$('#wanderAgentSelect').onchange=async event=>{agentState.select(event.target.value);const selected=selectedWanderAgent();$('#agentState').textContent=selected?`${selected.label} · ${selected.detail}. This conversation follows you into the garage.`:'Choose or connect an agent.';await loadWanderAgentHistory({scroll:true})};
 $('#agentProviders').onclick=event=>{const button=event.target.closest('button');if(!button)return;
  if(button.dataset.link){const form=$('#linkAgentForm');form.hidden?openLinkForm():form.hidden=true;return}
  if(button.dataset.start)startAgent(button.dataset.start)};
@@ -240,12 +260,12 @@ $('#linkAgentForm').onsubmit=async event=>{event.preventDefault();
  const provider=$('#linkProvider').value,label=$('#linkLabel').value.trim(),thread_id=$('#linkThread').value.trim(),command=$('#linkCommand').value.trim();
  try{const {user}=await api('/api/auth/me');if(!user){location.href='./register.html';return}
   const result=await api('/api/agents',{method:'POST',body:JSON.stringify({provider,label,thread_id,command})});
-  await loadAgents();$('#wanderAgentSelect').value=result.agent.id;
+  agentState.select(agentState.key('local',result.agent.id));await loadAgents();await loadWanderAgentHistory({scroll:true});
   $('#linkAgentForm').hidden=true;$('#linkLabel').value='';$('#linkThread').value='';$('#linkCommand').value='';
   toast(`${result.agent.label} is walking with you.`)}
  catch(error){toast(error.message)}};
 
 addEventListener('scroll',queueDepths,{passive:true});
 addEventListener('resize',queueDepths);
-if(innerWidth<=860)closeDock();
+if(innerWidth<=860&&!agentState.isOpen())$('#agentSidecar').hidden=true;else if(agentState.isOpen())openDock();
 updateTray();resetStreet();loadStreet().catch(()=>{});loadBadges();loadAgents();loadProviders();
