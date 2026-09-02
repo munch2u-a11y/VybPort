@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content="Wander the VybPort street — a long row of builder garages, signs lit, doors open." />
+    <title>Wander · VybPort</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./night.css" />
+    <link rel="stylesheet" href="./garage.css" />
+    <link rel="stylesheet" href="./wander.css" />
+    <link rel="stylesheet" href="./wander-street.css" />
+  </head>
+  <body class="wander-body night-body">
+    <!-- Scene: everything behind the row of garages, all of it fixed so the street never "ends". -->
+    <div class="scene" aria-hidden="true">
+      <div class="scene-sky"></div>
+      <div class="scene-vanish"></div>
+      <div class="scene-cables"><i></i><i></i><i></i></div>
+      <div class="scene-road"><i class="road-wet"></i><i class="road-kerb"></i></div>
+      <div class="scene-rain back"><i></i></div>
+    </div>
+
+    <header class="topbar">
+      <a class="wordmark" href="./index.html"><span class="mark">V</span>VybPort</a>
+      <nav class="primary-nav">
+        <a href="./index.html">Profile</a>
+        <a href="./garage.html">Garage</a>
+        <a class="active" href="./wander.html">Wander</a>
+        <a href="./arena.html">Arena <span class="live-dot"></span></a>
+      </nav>
+      <div class="top-actions">
+        <button class="agent-toggle" id="agentDockToggle" type="button"><span class="agent-spark">✦</span> Your agent</button>
+        <a class="avatar tiny" href="./register.html">N</a>
+      </div>
+    </header>
+
+    <main class="wander-page">
+        <h1 class="street-title">Wander the street of open garages</h1>
+      <section class="street-hud">
+        <div class="hood-switcher" id="hoodSwitcher"></div>
+        <label class="wander-search">⌕ <input id="wanderSearch" placeholder="Find a garage anywhere on the street" autocomplete="off" /></label>
+        <div class="wander-controls">
+          <div class="street-control-group">
+            <span>Build focus</span>
+            <div>
+              <button data-filter="all" class="active">All</button>
+              <button data-filter="memory">Memory</button>
+              <button data-filter="agents">Agents</button>
+              <button data-filter="benchmarks">Benchmarks</button>
+              <button data-filter="tools">Tools</button>
+            </div>
+          </div>
+          <div class="street-control-group">
+            <span>How far you walk</span>
+            <div>
+              <button data-radius="block">This block</button>
+              <button data-radius="near" class="active">Nearby</button>
+              <button data-radius="district">Whole district</button>
+            </div>
+          </div>
+          <a class="street-tray" href="./garage.html" id="streetTray" title="Everything you cloned or saved goes to your own garage">
+            <span class="eyebrow">In your garage</span><b id="trayCount">0 saved</b>
+          </a>
+        </div>
+      </section>
+
+      <p class="street-position" id="streetPosition" role="status" aria-live="polite">You are walking a street sorted by what you build.</p>
+
+      <div class="street-layout">
+        <section id="streetFeed" class="street-feed"></section>
+      </div>
+    </main>
+
+    <!-- The agent walks with you: a dock, not a column, so the street stays full width. -->
+    <aside id="agentSidecar" class="agent-sidecar">
+      <div class="sidecar-head">
+        <div><span class="eyebrow">Walking with you</span><h2>Your agent</h2></div>
+        <i class="agent-pulse"></i>
+        <button class="sidecar-close" id="agentDockClose" type="button" aria-label="Close agent dock">×</button>
+      </div>
+      <p id="agentState">Checking your local VybPort connection…</p>
+      <label class="agent-select-wrap"><span>Session</span>
+        <select id="wanderAgentSelect"><option value="">No session selected</option></select>
+      </label>
+      <div class="agent-providers" id="agentProviders">
+        <span class="eyebrow">Bring the agent you already use</span>
+        <div id="providerButtons"></div>
+        <p id="providerNote">Looking for coding agents on this machine…</p>
+      </div>
+      <form class="agent-link" id="linkAgentForm" hidden>
+        <label><span>Coding agent</span><select id="linkProvider"></select></label>
+        <label><span>Name this session</span><input id="linkLabel" placeholder="Claude Code · Habitus" autocomplete="off" /></label>
+        <label><span id="linkIdLabel">Session id</span><input id="linkThread" placeholder="Paste the exact id from your terminal" autocomplete="off" /></label>
+        <label id="linkCommandWrap" hidden><span>Command VybPort should run</span>
+          <input id="linkCommand" placeholder="my-agent --resume {session} {message}" autocomplete="off" spellcheck="false" />
+        </label>
+        <p id="linkHint"></p>
+        <div><button type="button" class="text-button" id="cancelLink">Cancel</button><button class="button solid" type="submit">Link session</button></div>
+      </form>
+      <div class="sidecar-context" id="agentContext">
+        <span class="eyebrow">Pinned context</span><b>Nothing pinned yet</b>
+        <p>Use “hand to agent” at any open door and the garage comes with you.</p>
+      </div>
+      <div class="sidecar-messages" id="agentMessages">
+        <div class="sidecar-message system">I only receive the public item you explicitly pin here.</div>
+      </div>
+      <form id="wanderAgentForm" class="sidecar-compose">
+        <textarea id="wanderAgentInput" placeholder="Ask your agent about this build…"></textarea>
+        <div>
+          <span class="compose-note" id="composeNote"></span>
+          <button class="button solid">Send →</button>
+        </div>
+      </form>
+      <a class="sidecar-account" id="agentAccountLink" href="./register.html">Create or open local account →</a>
+    </aside>
+
+    <!-- Front of the scene: fog you walk into, rain between you and the doors. -->
+    <div class="scene-front" aria-hidden="true">
+      <i class="haze-far"></i><i class="haze-near"></i>
+      <span class="scene-rain front"><i></i></span>
+      <i class="scene-vignette"></i>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <script src="./hood.js"></script>
+    <script src="./wander.js"></script>
+  </body>
+</html>

@@ -1,0 +1,146 @@
+/* Wander = one long row of workshops. Dark page chrome lives in night.css. */
+.street-title{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.wander-page{position:relative;max-width:1500px;margin:0 auto;padding:20px clamp(14px,3vw,34px) 44vh}
+
+/* Kerbside controls. Sticky under the topbar so you never lose your bearings mid-walk. */
+.street-hud{position:sticky;z-index:14;top:68px;display:flex;flex-wrap:wrap;align-items:end;gap:14px 26px;margin-bottom:12px;padding:13px 16px;border:1px solid rgba(122,166,255,.2);border-radius:12px;background:linear-gradient(180deg,rgba(9,14,20,.9),rgba(7,11,16,.78));box-shadow:0 16px 34px rgba(0,0,0,.45),inset 0 1px rgba(190,220,255,.08);backdrop-filter:blur(11px)}
+.wander-search{display:flex;flex:1 1 260px;align-items:center;gap:8px;padding:9px 12px;border:1px solid rgba(140,175,200,.28);border-radius:9px;background:rgba(4,8,12,.7);color:#7fd8c6}
+.wander-search:focus-within{border-color:#4be6c8;box-shadow:0 0 0 1px rgba(75,230,200,.35),0 0 22px -6px rgba(75,230,200,.6)}
+.wander-search input{width:100%;border:0;outline:0;background:transparent;color:#eaf4fb;font-size:12.5px}
+.wander-search input::placeholder{color:#6d8496}
+.wander-controls{display:flex;flex-wrap:wrap;align-items:end;gap:14px 22px}
+.street-control-group{display:grid;gap:6px}
+.street-control-group>span{color:#7d93a5;font:10px "DM Mono";text-transform:uppercase;letter-spacing:1.1px}
+.street-control-group>div{display:flex;flex-wrap:wrap;gap:5px}
+.wander-controls button{border:1px solid rgba(138,170,192,.28);border-radius:99px;padding:5px 10px;background:rgba(8,13,19,.7);color:#a3b8c8;font:11px "DM Mono";transition:.16s}
+.wander-controls button:hover{border-color:rgba(122,166,255,.7);color:#eaf4fb}
+.wander-controls button.active{border-color:#4be6c8;background:rgba(15,44,44,.75);color:#8ff3de;box-shadow:0 0 16px -5px rgba(75,230,200,.85)}
+.street-tray{display:grid;gap:3px;padding:7px 12px;border:1px solid rgba(242,193,90,.32);border-radius:9px;background:rgba(30,23,7,.5);color:#f6dfa8;text-decoration:none}
+.street-tray:hover{border-color:#f2c15a;box-shadow:0 0 20px -7px #f2c15a}
+.street-tray .eyebrow{color:#c2a967}
+.street-tray b{font:12px "DM Mono"}
+.street-position{position:relative;z-index:14;margin:0 0 4px;padding-left:2px;color:#8ba0b1;font:11px "DM Mono"}
+
+/* The row. Real perspective, with the vanishing point off to the left where the road runs out. */
+.street-layout{position:relative;z-index:10}
+.street-feed{position:relative;overflow-anchor:none;perspective:1500px;padding:9vh clamp(6px,3vw,54px) 0 clamp(0px,20vw,360px)}
+.garage-unit{position:relative;z-index:1;width:min(700px,48vw);margin:0 0 clamp(-220px,-16vh,-70px) auto;transform:translateX(calc((1 - var(--near)) * -12vw)) translateZ(var(--z,0)) rotateY(var(--ry,12deg));opacity:calc((.12 + var(--near) * .88) * (1 - var(--pass) * .9));filter:blur(calc((1 - var(--near)) * 1.9px + var(--pass) * 2.2px)) saturate(calc(.58 + var(--near) * .42)) brightness(calc(.74 + var(--near) * .26))}
+.garage-unit{--z:calc((var(--near) - 1) * 780px + var(--pass) * 300px);--ry:calc(9deg + (1 - var(--near)) * 8deg - var(--pass) * 3deg);--neon:hsl(var(--hue) 100% 63%);--neon-mid:hsl(var(--hue) 96% 58% / .5);--neon-soft:hsl(var(--hue) 96% 56% / .28)}
+.unit-body{position:relative}
+.unit-fog{position:absolute;z-index:6;inset:-8% -4%;background:linear-gradient(180deg,rgba(28,42,58,.85),rgba(20,31,44,.7));opacity:calc((1 - var(--near)) * .55);pointer-events:none}
+
+/* Facade: concrete block, parapet, one lit bay. */
+.unit-enter{display:block;color:inherit;text-decoration:none}
+.unit-facade{position:relative;padding:clamp(18px,2.8vw,32px) clamp(20px,3vw,38px) clamp(18px,2.4vw,28px);border:1px solid #39454e;border-bottom:0;background:linear-gradient(180deg,#5a6771 0 5px,#20282e 5px 13px,#333d45 13px,#1a2126 62%,#12181d 100%),repeating-linear-gradient(90deg,transparent 0 62px,rgba(190,214,232,.035) 62px 64px);box-shadow:0 40px 70px -22px #000,0 0 0 1px rgba(0,0,0,.6),inset 0 0 130px rgba(0,0,0,.45)}
+.unit-facade::before{position:absolute;top:10px;bottom:0;left:0;width:clamp(9px,1.1vw,15px);background:linear-gradient(90deg,#0c1013,#2b343b 55%,#0e1317);box-shadow:inset -1px 0 rgba(200,224,240,.14);content:""}
+.unit-facade::after{position:absolute;top:10px;bottom:0;right:0;width:clamp(9px,1.1vw,15px);background:linear-gradient(270deg,#0b0f12,#252d34 55%,#0d1216);content:""}
+.unit-enter:hover .unit-facade{border-color:var(--neon-mid)}
+
+/* The sign out front — the thing you actually read as you walk. */
+.unit-sign{position:relative;z-index:2;display:block;width:fit-content;max-width:100%;margin:0 auto clamp(14px,2vw,22px);padding:.42em .82em;border:2px solid var(--neon);border-radius:9px;background:rgba(5,9,13,.55);box-shadow:0 0 11px -1px var(--neon-mid),0 0 44px -6px var(--neon-mid),inset 0 0 16px -4px var(--neon-mid);color:#f2fbff;font:800 clamp(18px,2.5vw,32px)/1.06 Outfit,sans-serif;letter-spacing:2.6px;text-transform:uppercase;text-shadow:0 0 7px var(--neon),0 0 22px var(--neon-mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.unit-enter:hover .unit-sign{background:rgba(8,14,20,.7);box-shadow:0 0 14px var(--neon-mid),0 0 66px -4px var(--neon-mid),inset 0 0 22px -3px var(--neon-mid)}
+
+/* Bay: shutter up, strip light on, one thing on display. */
+.unit-bay{position:relative;height:clamp(210px,33vw,410px);border:clamp(6px,.8vw,10px) solid #12171c;border-radius:2px;background:#05080a;box-shadow:inset 0 0 0 2px #2a333a,0 -3px 0 #0c1013,0 0 60px -14px var(--neon-mid);overflow:hidden}
+.bay-shutter{position:absolute;z-index:4;top:0;left:0;right:0;height:15px;background:repeating-linear-gradient(180deg,#333d45 0 2px,#12171b 2px 4px);box-shadow:0 5px 12px rgba(0,0,0,.75);display:block}
+.bay-room{position:absolute;inset:0;background:radial-gradient(74% 38% at 50% 0%,rgba(255,255,255,.62),rgba(255,255,255,.07) 50%,transparent 68%),linear-gradient(90deg,rgba(4,8,12,.68) 0,rgba(4,8,12,.14) 11%,transparent 22%,transparent 78%,rgba(4,8,12,.2) 89%,rgba(4,8,12,.7) 100%),linear-gradient(180deg,hsl(var(--hue) 17% 78%) 0 53%,hsl(var(--hue) 22% 44%) 53% 55.5%,hsl(var(--hue) 14% 64%) 55.5%,hsl(var(--hue) 11% 36%) 100%)}
+.bay-room::before{position:absolute;left:-4%;right:-4%;bottom:0;height:44%;clip-path:polygon(19% 0,81% 0,100% 100%,0 100%);background:linear-gradient(180deg,hsl(var(--hue) 13% 60%),hsl(var(--hue) 9% 26%));box-shadow:inset 0 1px hsl(var(--hue) 26% 82%);content:""}
+.bay-room::after{position:absolute;left:22%;right:22%;bottom:0;height:42%;background:linear-gradient(180deg,rgba(255,255,255,.22),transparent 76%);filter:blur(6px);content:""}
+.bay-lamp{position:absolute;z-index:2;top:22px;left:19%;right:19%;height:6px;border-radius:4px;background:#fff;box-shadow:0 0 14px 4px rgba(255,255,255,.95),0 18px 52px 16px hsl(var(--hue) 92% 74% / .45);display:block}
+.bay-plinth{position:absolute;z-index:1;bottom:13%;left:50%;width:32%;height:6.5%;transform:translateX(-50%);clip-path:polygon(9% 0,91% 0,100% 100%,0 100%);background:linear-gradient(180deg,hsl(var(--hue) 12% 72%),hsl(var(--hue) 12% 44%));display:block}
+.bay-glow{position:absolute;z-index:0;bottom:6%;left:50%;width:74%;height:34%;transform:translateX(-50%);background:radial-gradient(ellipse at center,hsl(var(--hue) 96% 62% / .5),transparent 68%);filter:blur(11px);display:block}
+.bay-lip{position:absolute;z-index:5;bottom:0;left:0;right:0;height:9px;background:repeating-linear-gradient(45deg,#e0bb35 0 9px,#14181c 9px 18px);opacity:.72;display:block}
+.bay-glass{position:absolute;z-index:6;inset:0;background:linear-gradient(112deg,rgba(226,240,255,.12) 0 15%,transparent 34%),repeating-linear-gradient(180deg,transparent 0 3px,rgba(6,12,18,.07) 3px 4px);pointer-events:none;display:block}
+
+/* What is on display. A photo if the builder set one, otherwise a rig lit in their colour. */
+.bay-display{position:absolute;z-index:2;left:50%;top:45%;display:grid;place-items:center;width:31%;aspect-ratio:1;transform:translate(-50%,-50%)}
+.bay-display::before{position:absolute;width:76%;height:76%;border:5px solid hsl(var(--hue) 90% 72%);border-radius:50%;box-shadow:0 0 0 10px hsl(var(--hue) 90% 60% / .12),0 0 34px hsl(var(--hue) 96% 62% / .65);content:""}
+.bay-display::after{position:absolute;right:10%;bottom:4%;left:10%;height:9px;border-block:1px solid hsl(var(--hue) 60% 62%);background:repeating-linear-gradient(90deg,hsl(var(--hue) 92% 68%) 0 9px,transparent 9px 16px);box-shadow:0 0 16px hsl(var(--hue) 96% 60% / .7);content:""}
+.bay-display[data-rig=tower]::before{width:52%;height:88%;border-radius:4px;border-width:4px;background:repeating-linear-gradient(180deg,hsl(var(--hue) 40% 30% / .55) 0 7px,transparent 7px 12px)}
+.bay-display[data-rig=lattice]::before{width:84%;height:70%;border-radius:3px;border-width:3px;background:repeating-linear-gradient(45deg,hsl(var(--hue) 92% 66% / .5) 0 3px,transparent 3px 15px),repeating-linear-gradient(-45deg,hsl(var(--hue) 92% 66% / .4) 0 3px,transparent 3px 15px)}
+.display-mark{position:relative;z-index:1;padding:.3em .48em;border-radius:4px;background:hsl(var(--hue) 55% 10% / .6);color:#f6fdff;font:600 clamp(13px,1.5vw,19px) "DM Mono";text-shadow:0 0 10px hsl(var(--hue) 96% 62%);box-shadow:0 0 26px hsl(var(--hue) 96% 60% / .55),inset 0 0 0 1px hsl(var(--hue) 80% 60% / .5)}
+.display-photo{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border:1px solid hsl(var(--hue) 40% 70% / .6);border-radius:2px;filter:drop-shadow(0 0 20px hsl(var(--hue) 96% 60% / .6))}
+.bay-display.photo{width:46%;height:46%;top:45%;aspect-ratio:auto}
+.bay-display.photo::before,.bay-display.photo::after{display:none}
+
+/* Nameplate bolted under the door, plus the walking distance to this builder. */
+.unit-plate{position:relative;z-index:2;display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding:9px clamp(18px,2.6vw,30px);text-align:right;border:1px solid #232c33;border-top:0;background:linear-gradient(180deg,#1a2126,#0a0e12)}
+.unit-plate b{color:#e3eef7;font:600 12.5px Outfit,sans-serif;letter-spacing:.2px}
+.unit-plate span{color:#7f95a7;font:10px "DM Mono"}
+.unit-enter-hint{position:absolute;z-index:7;right:clamp(18px,2.6vw,30px);bottom:clamp(18px,2.2vw,26px);padding:4px 8px;border:1px solid var(--neon-mid);border-radius:99px;background:rgba(5,9,13,.85);color:var(--neon);font:9px "DM Mono";text-transform:uppercase;letter-spacing:1px;opacity:0;transform:translateY(4px);transition:.18s}
+.unit-enter:hover .unit-enter-hint,.unit-enter:focus-visible .unit-enter-hint{opacity:1;transform:none}
+.unit-number{position:absolute;z-index:2;top:calc(clamp(16px,2.4vw,26px) - 2px);left:clamp(22px,3vw,34px);color:#4d5f6d;font:10px "DM Mono";letter-spacing:1px}
+.unit-prox{position:absolute;z-index:5;top:-13px;left:clamp(18px,3vw,40px);padding:4px 9px;border:1px solid rgba(122,166,255,.4);border-radius:3px;background:rgba(7,12,18,.92);color:#a8c4e2;font:9px "DM Mono";text-transform:uppercase;letter-spacing:1.1px;box-shadow:0 0 18px -6px rgba(122,166,255,.9)}
+.unit-prox[data-step="0"]{border-color:rgba(75,230,200,.55);color:#8ff3de;box-shadow:0 0 18px -5px rgba(75,230,200,.9)}
+.unit-prox[data-step="3"]{border-color:rgba(140,160,175,.3);color:#8496a4;box-shadow:none}
+.unit-spill{position:absolute;z-index:0;right:6%;bottom:-58px;left:-14%;height:160px;background:radial-gradient(ellipse 56% 100% at 46% 0%,hsl(var(--hue) 96% 62% / .46),transparent 74%);filter:blur(17px);pointer-events:none;display:block}
+
+/* The post, out on the wet street in front of the door, lit by the bay behind it. */
+.unit-post{position:relative;z-index:4;width:min(540px,96%);margin:-14px 0 0 calc(-1 * clamp(22px,7vw,132px));padding:13px 15px 11px;border:1px solid rgba(130,162,184,.24);border-left:2px solid var(--neon);background:linear-gradient(180deg,rgba(11,17,23,.94),rgba(6,10,14,.97));box-shadow:0 22px 40px -12px rgba(0,0,0,.8),0 0 34px -12px var(--neon-mid)}
+.post-copy{margin:0;color:#c9dae7;font-size:12.5px;line-height:1.5}
+.post-actions{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-top:11px;padding-top:9px;border-top:1px solid rgba(130,162,184,.16)}
+.post-actions>div{display:flex;flex-wrap:wrap;gap:6px}
+.post-actions button{border:1px solid rgba(130,162,184,.22);border-radius:99px;padding:4px 9px;background:rgba(9,15,21,.7);color:#9db3c4;font:10px "DM Mono";transition:.15s}
+.post-actions button:hover{border-color:var(--neon);color:#eaf6ff;box-shadow:0 0 16px -6px var(--neon)}
+.post-actions .bolt{color:#f2c15a;border-color:rgba(242,193,90,.28)}
+.post-actions .clone.done{border-color:#4be6c8;color:#8ff3de}
+.post-ribbon{border:1px solid rgba(242,193,90,.5);border-radius:3px;padding:3px 6px;color:#f6dfa8;font:8px "DM Mono";text-transform:uppercase;letter-spacing:.9px}
+
+/* Block markers hung over the row when the walk crosses into a different kind of builder. */
+
+.district-sign{--z:calc((var(--near) - 1) * 780px + var(--pass) * 300px);--ry:calc(9deg + (1 - var(--near)) * 8deg - var(--pass) * 3deg);position:relative;z-index:3;width:fit-content;max-width:min(440px,46vw);margin-right:clamp(20px,4vw,70px);white-space:nowrap;transform:translateX(calc((1 - var(--near)) * -12vw)) translateZ(var(--z,0)) rotateY(var(--ry,12deg));margin:0 0 clamp(-120px,-9vh,-30px) auto;padding:8px 14px;border:1px solid rgba(122,166,255,.35);border-radius:4px;background:rgba(6,11,17,.82);color:#b6cee6;font:10px "DM Mono";text-transform:uppercase;letter-spacing:2px;text-align:center;box-shadow:0 0 26px -10px rgba(122,166,255,.9),0 14px 26px -16px #000;opacity:calc((.12 + var(--near) * .88) * (1 - var(--pass) * .9));filter:blur(calc((1 - var(--near)) * 1.6px))}
+.district-sign b{color:#eaf4fb;font-weight:500}
+.street-sentinel{display:block;height:2px}
+.street-empty{width:min(560px,80%);margin-left:auto;padding:26px;border:1px solid rgba(130,162,184,.24);background:rgba(8,13,19,.85);color:#b9cddc;font-size:13px}
+
+/* Your own agent, walking beside you. */
+.agent-sidecar{position:fixed;z-index:40;left:clamp(10px,2vw,22px);bottom:clamp(10px,2vw,22px);width:min(328px,calc(100vw - 24px));max-height:min(78vh,660px);overflow:auto;padding:15px;border:1px solid rgba(122,166,255,.3);border-radius:12px;background:linear-gradient(180deg,rgba(10,16,23,.96),rgba(6,10,15,.97));color:#dbe9f3;box-shadow:0 26px 60px rgba(0,0,0,.7),0 0 34px -18px rgba(122,166,255,.9);backdrop-filter:blur(12px);transition:transform .25s ease,opacity .25s ease}
+.agent-sidecar[hidden]{display:block;opacity:0;transform:translateY(14px) scale(.98);pointer-events:none}
+.sidecar-head{display:flex;justify-content:space-between;align-items:start;gap:8px}
+.sidecar-head h2{margin:5px 0 0;color:#f0f7fc;font:600 19px Outfit,sans-serif}
+.sidecar-head .eyebrow{color:#7d93a5}
+.sidecar-close{border:0;background:none;padding:0 2px;color:#7d93a5;font-size:20px;line-height:1}
+.sidecar-close:hover{color:#fff}
+.agent-pulse{width:8px;height:8px;margin:7px 0 0 auto;border-radius:50%;background:#4be6c8;box-shadow:0 0 12px #4be6c8}
+.agent-sidecar>p{margin:11px 0;color:#93a9ba;font-size:11px;line-height:1.45}
+.agent-select-wrap{display:grid;gap:5px;margin:11px 0}
+.agent-select-wrap span{color:#7d93a5;font:9px "DM Mono";text-transform:uppercase;letter-spacing:1px}
+.agent-select-wrap select{width:100%;border:1px solid rgba(130,162,184,.3);border-radius:6px;padding:8px;background:#080d12;color:#cfe0ec;font-size:11px}
+.sidecar-context{padding:10px;border:1px solid rgba(122,166,255,.24);border-radius:6px;background:rgba(13,21,30,.9)}
+.sidecar-context .eyebrow{color:#7d93a5}
+.sidecar-context b{display:block;margin-top:5px;color:#e7f2fa;font-size:11px}
+.sidecar-context p{margin:4px 0 0;color:#93a9ba;font-size:10px;line-height:1.4}
+/* Whichever coding agent the person actually runs: start one, or link a session they already have. */
+.agent-providers{margin:11px 0}
+.agent-providers .eyebrow{color:#7d93a5}
+.agent-providers>div{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.agent-providers button{border:1px solid rgba(122,166,255,.34);border-radius:99px;padding:5px 10px;background:rgba(11,18,26,.8);color:#bcd4ea;font:10px "DM Mono";transition:.15s}
+.agent-providers button:hover:not(:disabled){border-color:#7aa6ff;color:#fff;box-shadow:0 0 16px -6px #7aa6ff}
+.agent-providers button:disabled{border-color:rgba(130,162,184,.16);color:#5d7182;cursor:not-allowed}
+.agent-providers button.link{border-color:rgba(75,230,200,.4);color:#8ff3de}
+#providerNote{margin:7px 0 0;color:#7d93a5;font-size:10px;line-height:1.45}
+.agent-link[hidden],.agent-link label[hidden]{display:none}
+.agent-link{display:grid;gap:8px;margin:11px 0;padding:11px;border:1px solid rgba(122,166,255,.28);border-radius:8px;background:rgba(9,15,22,.9)}
+.agent-link label{display:grid;gap:4px}
+.agent-link span{color:#7d93a5;font:9px "DM Mono";text-transform:uppercase;letter-spacing:1px}
+.agent-link input,.agent-link select{width:100%;border:1px solid rgba(130,162,184,.3);border-radius:5px;padding:7px;background:#070c11;color:#e2eef8;font-size:11px}
+.agent-link input:focus,.agent-link select:focus{outline:0;border-color:#4be6c8}
+.agent-link input{font-family:"DM Mono",monospace}
+.agent-link p{margin:0;color:#7d93a5;font-size:10px;line-height:1.45}
+.agent-link>div{display:flex;justify-content:space-between;align-items:center}
+.sidecar-messages{display:grid;gap:7px;max-height:180px;margin:11px 0;overflow:auto}
+.sidecar-message{padding:8px;border-radius:6px;font-size:11px;line-height:1.45}
+.sidecar-message.system{background:rgba(21,31,42,.9);color:#b6c9d8}
+.sidecar-message.user{margin-left:22px;background:rgba(28,58,80,.9);color:#e7f3fb}
+.sidecar-compose textarea{width:100%;min-height:56px;resize:vertical;border:1px solid rgba(130,162,184,.3);border-radius:6px;padding:8px;background:#070c11;color:#e5f1f9;font-size:11px}
+.sidecar-compose div{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px}
+.compose-note{color:#7aa6ff;font:10px "DM Mono"}
+.sidecar-compose .button.solid{border-radius:7px;padding:7px 11px;background:#12564a;color:#b7f6e6;font-size:12px}
+.sidecar-compose .button.solid:hover{background:#17705f}
+.sidecar-compose .text-button{color:#7aa6ff;font-size:11px}
+.sidecar-account{display:block;margin-top:11px;color:#8fb6dd;font-size:10px;text-decoration:none}
+.sidecar-account:hover{color:#fff}
+
+@media(max-width:1100px){.garage-unit{width:min(680px,72vw)}.district-sign{max-width:min(360px,52vw)}.street-feed{padding-left:clamp(0px,12vw,180px)}}
+@media(max-width:860px){.street-feed{perspective:1100px;padding:6vh 0 0}.garage-unit{width:100%}.district-sign{width:auto;max-width:100%;white-space:normal}.garage-unit{--z:calc((var(--near) - 1) * 380px + var(--pass) * 140px);--ry:calc(4deg + (1 - var(--near)) * 4deg);margin-bottom:40px;transform:translateZ(var(--z)) rotateY(var(--ry))}.district-sign{margin:0 0 16px;transform:translateZ(var(--z,0)) rotateY(var(--ry,4deg))}.unit-post{width:100%;margin-left:0}.street-hud{top:60px}.agent-sidecar{left:8px;right:8px;width:auto;max-height:64vh}}
+@media(max-width:600px){.unit-sign{letter-spacing:1.6px}.unit-bay{height:clamp(160px,46vw,240px)}.street-position{font-size:10px}.unit-prox{left:12px}.unit-plate{align-items:flex-start;text-align:left}}

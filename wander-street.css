@@ -1,0 +1,45 @@
+/* The street itself: everything that is not a garage. All fixed, so the row never runs out of city.
+   Depth in this scene runs downward — the door in front of you sits at the focus line, doors further
+   along the row fall away below it into the haze, and the ones you have passed sweep off the top. */
+@property --near{syntax:"<number>";inherits:false;initial-value:1}
+@property --pass{syntax:"<number>";inherits:false;initial-value:0}
+html{overflow-x:clip}
+.wander-body{overflow-x:clip;background:#05070a;color:#dfe8ef}
+.scene{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.scene-front{position:fixed;inset:0;z-index:12;pointer-events:none;overflow:hidden}
+.scene-front>i,.scene-front>span{position:absolute;inset:0;display:block}
+
+/* City behind the row: a blurred plate low down, the lit skyline standing over the top of the doors. */
+.scene-sky{position:absolute;inset:0;background:#060910 url(./images/street-backdrop.jpg) center 60%/cover no-repeat;opacity:.3;-webkit-mask-image:linear-gradient(180deg,#000 0 30%,rgba(0,0,0,.35) 56%,transparent 76%);mask-image:linear-gradient(180deg,#000 0 30%,rgba(0,0,0,.35) 56%,transparent 76%)}
+.scene-sky::after{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,13,19,.3) 0 22%,rgba(6,9,13,.82) 62%,#04060a 100%),linear-gradient(90deg,rgba(6,10,15,.6),transparent 38%);content:""}
+.scene-vanish{position:absolute;top:0;left:0;right:0;height:min(58vh,540px);background:url(./images/street-skyline.jpg) 38% top/cover no-repeat;-webkit-mask-image:linear-gradient(180deg,#000 0 46%,rgba(0,0,0,.4) 76%,transparent 97%);mask-image:linear-gradient(180deg,#000 0 46%,rgba(0,0,0,.4) 76%,transparent 97%)}
+.scene-vanish::after{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,16,24,.22),rgba(10,16,24,.5));content:""}
+
+/* Overhead cabling, sagging across the street. */
+.scene-cables{position:absolute;top:0;left:-10%;right:-10%;height:36vh}
+.scene-cables i{position:absolute;left:0;right:0;border-top:1px solid rgba(7,11,16,.9);border-radius:0 0 50% 50%/0 0 100% 100%}
+.scene-cables i:nth-child(1){top:9vh;height:5vh;opacity:.8}
+.scene-cables i:nth-child(2){top:14vh;height:8vh;opacity:.6}
+.scene-cables i:nth-child(3){top:22vh;height:3vh;opacity:.45}
+
+/* Wet ground running away under the row, catching whatever the open doors are throwing out. */
+.scene-road{position:absolute;left:0;right:0;bottom:0;height:66vh}
+.road-wet{position:absolute;inset:0;display:block;background:linear-gradient(180deg,transparent,rgba(11,17,24,.4) 28%,rgba(15,23,32,.5) 74%,rgba(19,29,41,.6) 100%),repeating-linear-gradient(96deg,transparent 0 96px,rgba(150,176,196,.04) 96px 98px)}
+.road-wet::after{position:absolute;left:0;right:0;top:6%;height:80%;background:radial-gradient(52% 92% at 20% 0%,rgba(122,166,255,.15),transparent 72%),radial-gradient(34% 84% at 48% 0%,rgba(75,230,200,.11),transparent 72%),radial-gradient(38% 88% at 76% 0%,rgba(255,95,158,.09),transparent 74%);filter:blur(26px);content:""}
+.road-kerb{position:absolute;left:0;right:0;top:4%;height:1px;display:block;background:linear-gradient(90deg,transparent,rgba(160,186,205,.18) 26%,rgba(160,186,205,.08) 72%,transparent)}
+
+/* Rain. One sheet behind the row, one between you and it. */
+.scene-rain i{position:absolute;inset:-30%;overflow:hidden;transform:rotate(7deg)}
+.scene-rain i::before{position:absolute;left:0;right:0;top:-1400px;height:5600px;content:"";animation:rainfall 900ms linear infinite}
+.scene-rain.back i::before{background:repeating-linear-gradient(180deg,transparent 0 26px,rgba(178,206,236,.09) 26px 27px,transparent 27px 28px);opacity:.8}
+.scene-rain.front i{transform:rotate(10deg)}
+.scene-rain.front i::before{height:6000px;top:-1500px;background:repeating-linear-gradient(180deg,transparent 0 38px,rgba(206,230,255,.15) 38px 40px,transparent 40px 40px);animation-duration:560ms}
+@keyframes rainfall{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,1400px,0)}}
+
+/* Shadow over your shoulder, haze down the far end of the row. */
+.haze-far{background:linear-gradient(180deg,rgba(5,9,14,.62) 0 4%,rgba(5,9,14,.26) 14%,transparent 28%)}
+.haze-near{background:linear-gradient(0deg,rgba(38,54,73,.5) 0 2%,rgba(32,46,63,.28) 11%,rgba(26,38,53,.1) 22%,transparent 34%)}
+.scene-vignette{background:radial-gradient(150% 96% at 52% 38%,transparent 44%,rgba(3,5,8,.6) 100%)}
+
+@media(prefers-reduced-motion:reduce){.scene-rain i::before{animation:none}.scene-rain.front{opacity:.35}}
+@media(max-width:700px){.scene-vanish{height:40vh}.scene-road{height:54vh}}

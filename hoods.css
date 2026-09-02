@@ -1,0 +1,36 @@
+/* The directory of streets, and the form for opening a new one. */
+.hoods-page{position:relative;max-width:1080px;margin:0 auto;padding:24px clamp(14px,3vw,28px) 80px}
+.hoods-page::before{position:fixed;z-index:-1;inset:0;background:radial-gradient(110% 60% at 70% -10%,rgba(40,52,86,.5),transparent 58%),#05070a;content:""}
+.hoods-hero{max-width:720px;margin-bottom:24px}
+.hoods-hero h1{margin:8px 0;color:#f2fbff;font:700 clamp(27px,3.6vw,40px)/1.05 Outfit,sans-serif;letter-spacing:-1.3px}
+.hoods-hero p{margin:0;color:#a9c0cf;font-size:13.5px;line-height:1.6}
+.hoods-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.hood-card{--tone:hsl(var(--hood) 85% 62%);display:grid;gap:10px;padding:18px;border:1px solid hsl(var(--hood) 60% 55% / .38);border-radius:13px;background:linear-gradient(170deg,hsl(var(--hood) 42% 12% / .9),rgba(7,11,16,.94));box-shadow:0 20px 40px -26px #000}
+.hood-card:hover{border-color:var(--tone);box-shadow:0 22px 44px -24px #000,0 0 34px -16px var(--tone)}
+.hood-card header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.hood-card h2{margin:0;color:#eef6fb;font:600 19px Outfit,sans-serif;letter-spacing:-.3px}
+.hood-card .count{color:var(--tone);font:10px "DM Mono";white-space:nowrap}
+.hood-card>p{margin:0;color:#9db3c4;font-size:12px;line-height:1.5}
+.hood-bays{display:flex;flex-wrap:wrap;gap:5px}
+.hood-bays span{display:inline-flex;align-items:center;gap:5px;border:1px solid rgba(130,162,184,.25);border-radius:5px;padding:3px 7px;color:#c2d4e1;font:10px "DM Mono"}
+.hood-bays i{width:7px;height:7px;border-radius:2px;background:var(--role);box-shadow:0 0 7px var(--role)}
+.hood-tags{display:flex;flex-wrap:wrap;gap:5px}
+.hood-tags span{color:#7d93a5;font:10px "DM Mono"}
+.hood-card footer{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+.hood-card a{border:1px solid rgba(130,162,184,.3);border-radius:8px;padding:6px 10px;color:#cfe0ec;font:11px "DM Mono";text-decoration:none}
+.hood-card a:hover{border-color:var(--tone);color:#fff}
+.hood-card a.primary{border-color:var(--tone);color:var(--tone)}
+.hood-card .mine{border:1px solid rgba(75,230,200,.5);border-radius:99px;padding:2px 7px;color:#8ff3de;font:9px "DM Mono"}
+.hood-new{margin-top:26px;padding:20px clamp(16px,2.4vw,26px);border:1px solid rgba(130,162,184,.2);border-radius:13px;background:rgba(9,14,20,.82)}
+.hood-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.hood-form[hidden]{display:none}
+.hood-form label{display:grid;gap:5px}
+.hood-form label.wide,.hood-form fieldset.wide,.hood-form .bay-actions{grid-column:1/-1}
+.hood-form span,.hood-form legend{color:#7d93a5;font:9px "DM Mono";text-transform:uppercase;letter-spacing:1px}
+.hood-form input,.hood-form select{width:100%;border:1px solid rgba(130,162,184,.28);border-radius:7px;padding:8px;background:#060b10;color:#e6f1f8;font:11.5px "DM Mono"}
+.hood-form input:focus,.hood-form select:focus{outline:0;border-color:#4be6c8}
+.hood-form fieldset{margin:0;padding:13px 15px;border:1px solid rgba(130,162,184,.2);border-radius:9px}
+#slotRows{display:grid;gap:8px;margin:9px 0}
+.slot-row{display:grid;grid-template-columns:1.1fr 1fr 1.6fr auto;gap:8px;align-items:center}
+.slot-row button{border:1px solid rgba(255,107,129,.3);border-radius:6px;padding:6px 9px;background:transparent;color:#ff8b9e;font:10px "DM Mono"}
+@media(max-width:800px){.hood-form{grid-template-columns:1fr}.slot-row{grid-template-columns:1fr 1fr}}

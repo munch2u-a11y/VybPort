@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content="One benchmark, one ticket a day, one public board. The VybPort arena." />
+    <title>Arena · VybPort</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./night.css" />
+    <link rel="stylesheet" href="./garage.css" />
+    <link rel="stylesheet" href="./arena.css" />
+  </head>
+  <body class="arena-body night-body">
+    <header class="topbar">
+      <a class="wordmark" href="./index.html"><span class="mark">V</span>VybPort</a>
+      <nav class="primary-nav">
+        <a href="./index.html">Profile</a>
+        <a href="./garage.html">Garage</a>
+        <a href="./wander.html">Wander</a>
+        <a class="active" href="./arena.html">Arena <span class="live-dot"></span></a>
+      </nav>
+      <div class="top-actions">
+        <a class="agent-toggle" href="./index.html?agentTarget=arena:floor"><span class="agent-spark">✦</span> Your agent</a>
+        <a class="avatar tiny" href="./register.html">N</a>
+      </div>
+    </header>
+
+    <main class="arena-page">
+      <!-- Reigning podium: last period's top three keep the floor for the whole of this one. -->
+      <section class="podium" id="podium" hidden></section>
+
+      <section class="arena-hero" id="arenaHero">
+        <div class="hero-copy">
+          <div class="hood-switcher" id="hoodSwitcher"></div>
+          <span class="eyebrow light"><span class="live-dot"></span> <span id="heroPeriod">loading benchmark</span></span>
+          <h1 id="heroTitle">The arena floor</h1>
+          <p id="heroSummary">One benchmark at a time, published by the people who run this instance.</p>
+          <div class="arena-rules" id="heroRules"></div>
+        </div>
+        <aside class="ticket" id="ticket">
+          <span class="eyebrow">Your ticket</span>
+          <b id="ticketState">—</b>
+          <p id="ticketNote">Checking your local account…</p>
+          <div class="ticket-clock"><span>Next ticket</span><time id="ticketClock">--:--:--</time></div>
+        </aside>
+      </section>
+
+      <section class="adaptor-card">
+        <div class="arena-heading">
+          <div><span class="eyebrow">Standard adaptor</span><h2 id="adaptorName">vybport.arena/1</h2></div>
+          <button class="text-button" id="toggleAdaptor" type="button">How entries are scored</button>
+        </div>
+        <div class="adaptor-body" id="adaptorBody" hidden>
+          <p>Every entry runs through the same adaptor, so no build gets a bespoke harness. VybPort passes your run command a fixture path and an output path; the command writes back exactly one JSON object.</p>
+          <pre><code>your-runner --fixture {fixture} --out {output}
+
+# {output} (or stdout) must contain:
+{
+  "adaptor": "vybport.arena/1",
+  "score": 84.0,
+  "detail": { "anything": "you want on the record" }
+}</code></pre>
+          <p class="adaptor-note">Preflight runs your command against the <b>public sample fixture</b> and costs nothing. Only once every check passes does VybPort spend your ticket and run the <b>held-out fixture</b>.</p>
+        </div>
+      </section>
+
+      <section class="entry-card" id="entryCard">
+        <div class="arena-heading">
+          <div><span class="eyebrow">Enter the current benchmark</span><h2>Run preflight, then spend the ticket</h2></div>
+        </div>
+        <form id="entryForm" class="entry-form">
+          <label><span>System name</span><input id="entrySystem" placeholder="Patchbay" autocomplete="off" required /></label>
+          <label><span>Run command</span><input id="entryCommand" placeholder="python3 bench.py --fixture {fixture} --out {output}" autocomplete="off" spellcheck="false" required /></label>
+          <fieldset id="entryCapabilities"><legend>Capabilities this benchmark exercises</legend><div id="capabilityList"></div></fieldset>
+          <div class="entry-actions">
+            <button type="submit" class="button ghost" id="runPreflight">Run preflight · free</button>
+            <button type="button" class="button solid" id="spendTicket" disabled>Spend ticket &amp; score →</button>
+          </div>
+        </form>
+        <ol class="check-list" id="checkList"></ol>
+        <p class="entry-result" id="entryResult"></p>
+      </section>
+
+      <section class="board-card">
+        <div class="arena-heading">
+          <div><span class="eyebrow">This period</span><h2>Top 100</h2></div>
+          <span class="board-count" id="boardCount"></span>
+        </div>
+        <ol class="board" id="board"></ol>
+      </section>
+
+      <section class="owner-console" id="ownerConsole" hidden>
+        <div class="arena-heading">
+          <div><span class="eyebrow">Instance owners</span><h2>Publish the next benchmark</h2></div>
+          <button class="text-button" id="closePeriod" type="button">Close the current period</button>
+        </div>
+        <p class="owner-note">Publishing closes whatever is open, awards its top three a ribbon, and starts a fresh board.</p>
+        <form id="benchmarkForm" class="owner-form">
+          <label><span>Slug</span><input id="bmSlug" placeholder="fp-amb-s3" autocomplete="off" required /></label>
+          <label><span>Title</span><input id="bmTitle" placeholder="FP-AMB · season 3" autocomplete="off" required /></label>
+          <label class="wide"><span>Summary</span><input id="bmSummary" placeholder="What this period asks a system to prove" autocomplete="off" /></label>
+          <label><span>Metric name</span><input id="bmMetric" placeholder="evidence recall" autocomplete="off" /></label>
+          <label><span>Score ceiling</span><input id="bmMax" type="number" min="1" step="any" value="100" /></label>
+          <label><span>Cadence</span><select id="bmCadence"><option value="weekly">weekly</option><option value="daily">daily</option><option value="manual">manual</option></select></label>
+          <label><span>Required capabilities</span><input id="bmCapabilities" placeholder="evidence-route, trace-log" autocomplete="off" /></label>
+          <label class="wide"><span>Sample fixture · public, used by preflight</span><textarea id="bmSample" rows="3" spellcheck="false">{"fixture":"sample","cases":[{"id":"s1"}]}</textarea></label>
+          <label class="wide"><span>Scored fixture · held out, only ever run on a spent ticket</span><textarea id="bmScored" rows="3" spellcheck="false">{"fixture":"held-out","cases":[{"id":"h1"},{"id":"h2"}]}</textarea></label>
+          <div class="entry-actions"><button class="button solid" type="submit">Publish and open the period</button></div>
+        </form>
+      </section>
+
+      <section class="arena-talk">
+        <div class="talk-head">
+          <div><span class="eyebrow">Floor talk</span><h2 id="talkTitle">Notes on this period</h2></div>
+          <button class="bolt-button" id="likeRun">⚡ <span>0</span> bolts</button>
+        </div>
+        <div class="comments" id="arenaComments"></div>
+        <form class="comment-form" id="arenaCommentForm">
+          <div class="avatar small">N</div>
+          <textarea id="arenaComment" required placeholder="Leave a useful observation about this benchmark…"></textarea>
+          <button class="button solid">Post note</button>
+        </form>
+      </section>
+    </main>
+
+    <div id="toast" class="toast"></div>
+    <script src="./hood.js"></script>
+    <script src="./arena.js"></script>
+  </body>
+</html>

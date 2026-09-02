@@ -1,0 +1,135 @@
+/* The arena floor: one benchmark, one ticket a day, one public board. Dark chrome comes from night.css. */
+.arena-page{position:relative;max-width:1080px;margin:0 auto;padding:22px clamp(14px,3vw,28px) 80px}
+.arena-page::before{position:fixed;z-index:-1;inset:0;background:radial-gradient(120% 70% at 50% -10%,rgba(24,74,66,.5),transparent 60%),radial-gradient(80% 50% at 88% 8%,rgba(122,166,255,.14),transparent 62%),#05070a;content:""}
+.arena-heading{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:10px;margin-bottom:14px}
+.arena-heading h2{margin:5px 0 0;color:#eef6fb;font:600 21px Outfit,sans-serif;letter-spacing:-.3px}
+.arena-page .text-button{color:#7aa6ff;font-size:12px}
+.arena-page .text-button:hover{color:#fff}
+
+/* Reigning podium — last period's top three hold the floor for the whole of this one. */
+.podium{margin:14px 0 22px;padding:20px clamp(16px,2.4vw,26px);border:1px solid rgba(242,193,90,.34);border-radius:14px;background:linear-gradient(180deg,rgba(38,30,10,.86),rgba(9,12,16,.92));box-shadow:0 24px 50px -26px #000,inset 0 1px rgba(255,226,160,.16)}
+.podium-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:15px}
+.podium-head b{color:#f7e6bb;font:600 15px Outfit,sans-serif}
+.podium-head span{color:#c3a970;font:10px "DM Mono";text-transform:uppercase;letter-spacing:1.2px}
+.podium-row{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.podium-slot{position:relative;display:grid;gap:5px;padding:15px 14px 14px;border:1px solid rgba(242,193,90,.24);border-radius:11px;background:rgba(12,16,21,.86);color:#eef4f9;text-decoration:none;overflow:hidden}
+.podium-slot:hover{border-color:#f2c15a;box-shadow:0 0 30px -12px #f2c15a}
+.podium-slot::before{position:absolute;top:0;left:0;right:0;height:3px;background:var(--medal);content:""}
+.podium-slot[data-place="1"]{--medal:linear-gradient(90deg,#f7d774,#ffb545)}
+.podium-slot[data-place="2"]{--medal:linear-gradient(90deg,#d8e4ec,#9fb2c0)}
+.podium-slot[data-place="3"]{--medal:linear-gradient(90deg,#e0a877,#b1703f)}
+.podium-place{color:#f2c15a;font:700 11px "DM Mono";letter-spacing:1.6px;text-transform:uppercase}
+.podium-slot b{font:600 17px Outfit,sans-serif}
+.podium-slot small{color:#9db3c4;font-size:11px}
+.podium-score{margin-top:4px;color:#8ff3de;font:600 22px "DM Mono"}
+.podium-score span{margin-left:5px;color:#7d93a5;font:400 10px "DM Mono";letter-spacing:.6px}
+.podium-empty{color:#93a9ba;font-size:12px}
+
+/* The open benchmark and the ticket that buys one run at it. */
+.arena-hero{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:20px;padding:26px clamp(18px,2.6vw,30px);border:1px solid rgba(75,230,200,.24);border-radius:14px;background:linear-gradient(160deg,rgba(12,38,34,.9),rgba(7,11,16,.94));box-shadow:0 26px 54px -28px #000}
+.arena-hero h1{margin:9px 0;color:#f2fbff;font:700 clamp(26px,3.4vw,38px)/1.04 Outfit,sans-serif;letter-spacing:-1.2px}
+.arena-hero p{max-width:620px;margin:0;color:#a9c0cf;font-size:13px;line-height:1.55}
+.eyebrow.light{display:inline-flex;align-items:center;gap:7px;color:#8ff3de}
+.arena-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:18px}
+.arena-rules span{border:1px solid rgba(75,230,200,.3);border-radius:99px;padding:5px 9px;color:#9fe6d5;font:10px "DM Mono"}
+.arena-rules span.cap{border-color:rgba(122,166,255,.36);color:#b6cfea}
+.ticket{display:grid;align-content:start;gap:5px;padding:16px;border:1px dashed rgba(242,193,90,.45);border-radius:11px;background:rgba(30,24,8,.5)}
+.ticket>b{color:#fbe9c0;font:600 20px Outfit,sans-serif}
+.ticket p b{color:#f2c15a;font-weight:600}
+.ticket p a{color:#f2c15a;text-decoration:none}
+.ticket p a:hover{color:#ffe7b4}
+.ticket p{margin:2px 0 0;color:#c0aa7c;font-size:11px;line-height:1.45}
+.ticket.spent{border-style:solid;border-color:rgba(130,162,184,.3);background:rgba(12,17,23,.7)}
+.ticket.spent>b{color:#9db3c4}
+.ticket-clock{display:flex;justify-content:space-between;align-items:baseline;margin-top:11px;padding-top:9px;border-top:1px solid rgba(242,193,90,.2);color:#c3a970;font:10px "DM Mono";text-transform:uppercase;letter-spacing:1px}
+.ticket-clock time{color:#f2c15a;font:600 16px "DM Mono";letter-spacing:0}
+
+/* Cards */
+.adaptor-card,.entry-card,.board-card,.owner-console{margin-top:20px;padding:20px clamp(16px,2.4vw,26px);border:1px solid rgba(130,162,184,.2);border-radius:13px;background:rgba(9,14,20,.82)}
+.adaptor-body p{margin:0 0 11px;color:#a9c0cf;font-size:12.5px;line-height:1.55}
+.adaptor-body pre{margin:0 0 11px;padding:13px;border:1px solid rgba(130,162,184,.2);border-radius:8px;background:#050a0e;overflow-x:auto}
+.adaptor-body code{color:#8ff3de;font:11.5px/1.6 "DM Mono";white-space:pre}
+.adaptor-note{color:#c9dae7}
+.adaptor-note b{color:#f2c15a}
+#adaptorName{font-family:"DM Mono";font-size:16px;font-weight:500;color:#8ff3de}
+
+/* Entering: preflight is free, the ticket is not. */
+.entry-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.entry-form label{display:grid;gap:5px}
+.entry-form label:nth-of-type(2){grid-column:1/-1}
+.entry-form span,.owner-form span,.entry-form legend{color:#7d93a5;font:9px "DM Mono";text-transform:uppercase;letter-spacing:1px}
+.entry-form input,.owner-form input,.owner-form select,.owner-form textarea{width:100%;border:1px solid rgba(130,162,184,.28);border-radius:7px;padding:9px;background:#060b10;color:#e6f1f8;font-size:12px}
+.entry-form input,.owner-form textarea{font-family:"DM Mono",monospace}
+.entry-form input:focus,.owner-form input:focus,.owner-form textarea:focus,.owner-form select:focus{outline:0;border-color:#4be6c8}
+#entryCapabilities{grid-column:1/-1;margin:0;padding:11px 13px;border:1px solid rgba(130,162,184,.2);border-radius:8px}
+#capabilityList{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+#capabilityList label{display:flex;flex-direction:row;align-items:center;gap:6px;border:1px solid rgba(122,166,255,.3);border-radius:99px;padding:5px 10px;color:#bcd4ea;font:11px "DM Mono";cursor:pointer}
+#capabilityList label:has(:checked){border-color:#4be6c8;background:rgba(15,44,44,.7);color:#8ff3de}
+#capabilityList input{width:auto;accent-color:#4be6c8}
+.entry-actions{display:flex;flex-wrap:wrap;gap:9px;grid-column:1/-1;margin-top:2px}
+.arena-page .button.ghost{border-color:rgba(122,166,255,.4);background:rgba(13,21,30,.8);color:#bcd4ea}
+.arena-page .button.ghost:hover{border-color:#7aa6ff;color:#fff}
+.arena-page .button.solid{background:#12564a;color:#b7f6e6}
+.arena-page .button.solid:hover{background:#17705f}
+.arena-page .button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.check-list{display:grid;gap:6px;margin:15px 0 0;padding:0;list-style:none}
+.check-list li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px;align-items:start;padding:9px 11px;border:1px solid rgba(130,162,184,.18);border-radius:8px;background:rgba(6,11,16,.7)}
+.check-list i{display:grid;place-items:center;width:17px;height:17px;border-radius:50%;font-style:normal;font-size:10px;font-weight:700}
+.check-list .ok i{background:rgba(75,230,200,.16);color:#4be6c8}
+.check-list .bad i{background:rgba(255,107,129,.16);color:#ff8b9e}
+.check-list b{display:block;color:#dfeaf3;font:500 12px Outfit,sans-serif}
+.check-list small{display:block;margin-top:2px;color:#8ba1b2;font:10.5px "DM Mono";word-break:break-word}
+.entry-result{margin:13px 0 0;padding:11px 13px;border-radius:8px;font-size:12.5px;line-height:1.5}
+.entry-result:empty{display:none}
+.entry-result.good{border:1px solid rgba(75,230,200,.4);background:rgba(11,42,38,.7);color:#a9f2e2}
+.entry-result.bad{border:1px solid rgba(255,107,129,.35);background:rgba(44,14,20,.6);color:#ffb9c4}
+
+/* Top 100 */
+.board-count{color:#7d93a5;font:10px "DM Mono"}
+.board{display:grid;gap:4px;margin:0;padding:0;list-style:none;counter-reset:place}
+.board li{display:grid;grid-template-columns:44px minmax(0,1.4fr) minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid rgba(130,162,184,.14);border-radius:8px;background:rgba(7,12,17,.7)}
+.board li:hover{border-color:rgba(122,166,255,.4)}
+.board .place{color:#7d93a5;font:600 12px "DM Mono"}
+.board li[data-place="1"]{border-color:rgba(247,215,116,.5);background:rgba(30,24,8,.55)}
+.board li[data-place="2"]{border-color:rgba(216,228,236,.32)}
+.board li[data-place="3"]{border-color:rgba(224,168,119,.34)}
+.board li[data-place="1"] .place{color:#f7d774}
+.board li[data-place="2"] .place{color:#d8e4ec}
+.board li[data-place="3"] .place{color:#e0a877}
+.board .who{display:grid;gap:1px;min-width:0}
+.board .who b{color:#e8f2fa;font:600 13px Outfit,sans-serif}
+.board .who a{color:#8ba1b2;font:10px "DM Mono";text-decoration:none}
+.board .who a:hover{color:#8ff3de}
+.board .system{color:#9db3c4;font:11px "DM Mono";overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board .score{color:#8ff3de;font:600 15px "DM Mono";text-align:right}
+.board .score small{display:block;color:#6d8496;font-size:9px;font-weight:400}
+.board-empty{padding:22px;color:#93a9ba;font-size:12.5px;text-align:center}
+
+/* Owner console */
+.owner-console{border-color:rgba(242,193,90,.3);background:rgba(20,16,8,.6)}
+.owner-note{margin:0 0 14px;color:#c0aa7c;font-size:11.5px;line-height:1.5}
+.owner-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.owner-form label{display:grid;gap:5px}
+.owner-form label.wide{grid-column:1/-1}
+.owner-form textarea{resize:vertical;font-size:11px;line-height:1.5}
+
+/* Floor talk keeps its shape, dressed for the dark. */
+.arena-talk{max-width:720px;margin-top:28px}
+.talk-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:13px}
+.talk-head h2{margin:5px 0 0;color:#eef6fb;font:600 21px Outfit,sans-serif}
+.bolt-button{border:1px solid rgba(242,193,90,.3);border-radius:8px;padding:7px 10px;background:rgba(12,17,23,.8);color:#f6dfa8;font-size:11px}
+.bolt-button.liked,.bolt-button:hover{border-color:#f2c15a;color:#ffe7b4}
+.comments{display:grid;gap:9px}
+.comment{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;padding:11px 13px;border:1px solid rgba(130,162,184,.18);border-radius:9px;background:rgba(8,13,19,.75)}
+.comment>div{display:flex;align-items:baseline;gap:8px;grid-column:2}
+.comment .avatar{grid-row:span 2;width:30px;height:30px;font-size:12px}
+.comment b{color:#e8f2fa;font-size:12.5px}
+.comment time{color:#6d8496;font:9px "DM Mono"}
+.comment p{margin:3px 0 0;grid-column:2;color:#bfd2df;font-size:12px;line-height:1.5}
+.comment-form{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:9px;align-items:start;margin-top:12px}
+.comment-form textarea{min-height:52px;resize:vertical;border:1px solid rgba(130,162,184,.28);border-radius:8px;padding:9px;background:#060b10;color:#e6f1f8;font-size:12px}
+.comment-form textarea:focus{outline:0;border-color:#4be6c8}
+.stage-note{color:#93a9ba;font-size:12px}
+
+@media(max-width:860px){.arena-hero{grid-template-columns:1fr}.owner-form{grid-template-columns:repeat(2,minmax(0,1fr))}.podium-row{grid-template-columns:1fr}}
+@media(max-width:640px){.entry-form,.owner-form{grid-template-columns:1fr}.board li{grid-template-columns:34px minmax(0,1fr) auto;row-gap:4px}.board .system{grid-column:2/-1;grid-row:2}.comment-form{grid-template-columns:1fr}.comment-form .avatar{display:none}}

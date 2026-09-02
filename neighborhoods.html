@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content="Every street on VybPort, and the shared rack each one expects." />
+    <title>Neighborhoods · VybPort</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./night.css" />
+    <link rel="stylesheet" href="./garage.css" />
+    <link rel="stylesheet" href="./hoods.css" />
+  </head>
+  <body class="hoods-body night-body">
+    <header class="topbar">
+      <a class="wordmark" href="./index.html"><span class="mark">V</span>VybPort</a>
+      <nav class="primary-nav">
+        <a href="./index.html">Profile</a>
+        <a href="./garage.html">Garage</a>
+        <a class="active" href="./wander.html">Wander</a>
+        <a href="./arena.html">Arena <span class="live-dot"></span></a>
+      </nav>
+      <div class="top-actions">
+        <a class="agent-toggle" href="./index.html"><span class="agent-spark">✦</span> Your agent</a>
+        <a class="avatar tiny" href="./register.html">N</a>
+      </div>
+    </header>
+
+    <main class="hoods-page">
+      <section class="hoods-hero">
+        <span class="eyebrow">Neighborhoods</span>
+        <h1>Every street sets its own rack.</h1>
+        <p>A neighborhood is a kind of building, not a topic tag. Everyone on a street mounts the same bays, so two garages can be read module against module instead of README against README. You keep one garage per street.</p>
+      </section>
+
+      <section class="hoods-list" id="hoodsList"></section>
+
+      <section class="hood-new">
+        <div class="section-heading compact">
+          <div><span class="eyebrow">Nothing fits what you build?</span><h2>Open a new street</h2></div>
+          <button class="text-button" id="toggleNew">Start one</button>
+        </div>
+        <form class="hood-form" id="hoodForm" hidden>
+          <label><span>Slug</span><input id="hSlug" placeholder="synth-audio" autocomplete="off" required /></label>
+          <label><span>Name</span><input id="hName" placeholder="Synths &amp; audio tools" autocomplete="off" required /></label>
+          <label><span>Accent hue (0–359)</span><input id="hHue" type="number" min="0" max="359" value="310" /></label>
+          <label class="wide"><span>One line</span><input id="hTagline" placeholder="DSP, sequencers, and things that make noise." autocomplete="off" /></label>
+          <label class="wide"><span>Tags builders here would pick from</span><input id="hTags" placeholder="dsp, midi, modular, sampling" autocomplete="off" /></label>
+          <fieldset class="wide"><legend>The bays every garage on this street will fill</legend>
+            <div id="slotRows"></div>
+            <button type="button" class="text-button" id="addSlot">+ add a bay</button>
+          </fieldset>
+          <div class="bay-actions"><button class="button solid" type="submit">Open the street</button></div>
+        </form>
+      </section>
+    </main>
+
+    <div id="toast" class="toast"></div>
+    <script src="./hood.js"></script>
+    <script src="./hoods.js"></script>
+  </body>
+</html>
