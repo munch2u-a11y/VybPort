@@ -1,0 +1,26 @@
+/* Folder picker: a drawer of the machine's own shelves, in the same shop register as everything else. */
+.picker{position:fixed;z-index:60;inset:0;display:grid;place-items:center;padding:20px;background:rgba(3,6,9,.72);backdrop-filter:blur(4px)}
+.picker[hidden]{display:none}
+.picker-panel{display:grid;gap:12px;width:min(620px,100%);max-height:min(76vh,660px);padding:18px;border:1px solid rgba(122,166,255,.32);border-radius:13px;background:linear-gradient(180deg,rgba(13,20,28,.98),rgba(7,11,16,.99));box-shadow:0 34px 70px -30px #000;color:#dfe8ef}
+.picker-panel header{display:flex;justify-content:space-between;align-items:start;gap:10px}
+.picker-here{display:block;margin-top:4px;color:#8ff3de;font:11px "DM Mono";word-break:break-all}
+.picker-close{border:0;background:none;padding:0 2px;color:#7d93a5;font-size:21px;line-height:1;cursor:pointer}
+.picker-close:hover{color:#fff}
+.picker-crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:3px}
+.picker-crumbs button{border:0;background:none;padding:2px 4px;border-radius:4px;color:#bcd4ea;font:10.5px "DM Mono";cursor:pointer}
+.picker-crumbs button:hover{background:rgba(122,166,255,.16);color:#fff}
+.picker-crumbs i{color:#4d5f6d;font-style:normal;font:10px "DM Mono"}
+.picker-list{display:grid;gap:3px;overflow:auto;padding-right:3px;min-height:120px}
+.picker-list button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 11px;border:1px solid rgba(130,162,184,.16);border-radius:7px;background:rgba(6,11,16,.7);text-align:left;cursor:pointer}
+.picker-list button:hover{border-color:#7aa6ff;background:rgba(14,24,36,.9)}
+.picker-list button.repo{border-color:rgba(75,230,200,.3)}
+.picker-icon{color:#7d93a5;font:11px "DM Mono"}
+.picker-list button.repo .picker-icon{color:#4be6c8}
+.picker-list b{color:#e8f2fa;font:600 12.5px Outfit,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.picker-list i{color:#7d93a5;font:9.5px "DM Mono";font-style:normal;white-space:nowrap}
+.picker-empty{margin:0;padding:22px;color:#7d93a5;font-size:12px;text-align:center}
+.picker-panel footer{display:flex;flex-wrap:wrap;align-items:center;gap:9px}
+.picker-note{margin-right:auto;color:#7d93a5;font:9.5px "DM Mono"}
+.picker-panel .button{padding:8px 12px;font-size:12px}
+.picker-panel .button.ghost{border-color:rgba(122,166,255,.4);background:rgba(13,21,30,.85);color:#bcd4ea}
+.picker-panel .button.solid{background:#12564a;color:#b7f6e6}

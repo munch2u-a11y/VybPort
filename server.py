@@ -1874,6 +1874,43 @@ class VybPortHandler(SimpleHTTPRequestHandler):
             except ValueError as error:
                 self.json_response(HTTPStatus.BAD_REQUEST, {"error": str(error)})
             return
+        if parsed.path == "/api/browse":
+            # A folder picker for a service running on your own machine. Browsers never hand a page an
+            # absolute path, so the listing happens here — bounded to the roots pairing already allows.
+            try:
+                self.require_user()
+                if PUBLIC_MODE:
+                    raise ValueError("Folder browsing is a local feature.")
+                asked = parse_qs(parsed.query).get("path", [""])[0]
+                if asked:
+                    here = Path(asked).expanduser().resolve()
+                    if not any(here == root or root in here.parents for root in WORKSPACE_ROOTS):
+                        raise ValueError("Outside the folders this instance may pair.")
+                else:
+                    here = WORKSPACE_ROOTS[0]
+                if not here.is_dir():
+                    raise ValueError("No such folder.")
+                folders = []
+                for child in sorted(here.iterdir(), key=lambda item: item.name.lower()):
+                    if not child.is_dir() or child.is_symlink() or child.name.startswith(".") or child.name in SKIP_DIRS:
+                        continue
+                    try:
+                        marks = [mark for mark in (".git", "package.json", "pyproject.toml", "Cargo.toml", "go.mod")
+                                 if (child / mark).exists()]
+                        folders.append({"name": child.name, "path": str(child), "repo": ".git" in marks,
+                                        "marks": [mark for mark in marks if mark != ".git"]})
+                    except OSError:
+                        continue
+                    if len(folders) >= 400:
+                        break
+                parent = str(here.parent) if any(root in here.parents for root in WORKSPACE_ROOTS) else ""
+                self.json_response(HTTPStatus.OK, {"here": str(here), "name": here.name, "parent": parent,
+                                                   "roots": [str(root) for root in WORKSPACE_ROOTS], "folders": folders})
+            except PermissionError as error:
+                self.json_response(HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            except (ValueError, OSError) as error:
+                self.json_response(HTTPStatus.BAD_REQUEST, {"error": str(error)})
+            return
         if parsed.path == "/api/workspaces":
             try:
                 user = self.require_user()

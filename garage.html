@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./night.css" />
     <link rel="stylesheet" href="./rack.css" />
+    <link rel="stylesheet" href="./picker.css" />
     <link rel="stylesheet" href="./flow.css" />
     <link rel="stylesheet" href="./garage.css" />
   </head>
@@ -102,7 +103,7 @@
           <p id="pairRoots">Pairing a folder lets a garage rebuild itself from it — the local mess stays local, the rack is what people see.</p></div></div>
         <div class="pair-list" id="pairList"></div>
         <form class="pair-form" id="pairForm">
-          <label><span>Absolute path</span><input id="pairPath" placeholder="/home/you/projects/thing" autocomplete="off" required /></label>
+          <label><span>Folder</span><div class="pair-path"><input id="pairPath" placeholder="pick a folder, or type a path" autocomplete="off" required /><button type="button" class="button ghost" id="browseFolder">Browse…</button></div></label>
           <label><span>Call it</span><input id="pairLabel" placeholder="thing" autocomplete="off" /></label>
           <div class="bay-actions"><button class="button ghost" type="submit">Pair this folder</button></div>
         </form>
@@ -145,6 +146,7 @@
     <div id="toast" class="toast"></div>
     <script src="./rack.js"></script>
     <script src="./flow.js"></script>
+    <script src="./picker.js"></script>
     <script src="./hood.js"></script>
     <script src="./garage.js"></script>
   </body>

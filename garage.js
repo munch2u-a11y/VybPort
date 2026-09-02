@@ -147,6 +147,11 @@ function renderWorkspaces(){
 async function loadWorkspaces(){try{const data=await api('/api/workspaces');workspaces=data.workspaces;
  $('#pairRoots').textContent=`Pairing a folder lets a garage rebuild itself from it — the local mess stays local, the rack is what people see. Allowed under: ${data.roots.join(', ')}.`}
  catch{workspaces=[]}renderWorkspaces()}
+/* Pick a folder instead of typing a path. The listing is the local service's, not the browser's. */
+$('#browseFolder').onclick=async()=>{const chosen=await VybPicker.pick($('#pairPath').value.trim());
+ if(!chosen)return;
+ $('#pairPath').value=chosen;
+ if(!$('#pairLabel').value.trim())$('#pairLabel').value=chosen.split('/').filter(Boolean).pop()||''};
 $('#pairForm').onsubmit=async event=>{event.preventDefault();
  try{await api('/api/workspaces',{method:'POST',body:JSON.stringify({path:$('#pairPath').value.trim(),label:$('#pairLabel').value.trim()})});
   $('#pairPath').value='';$('#pairLabel').value='';await loadWorkspaces();toast('Folder paired.')}

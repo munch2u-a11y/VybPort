@@ -196,3 +196,5 @@
 .code-bar span{margin-right:auto;color:#7d93a5;font:9.5px "DM Mono"}
 pre.code{margin:0;padding:12px 13px;max-height:330px;overflow:auto;background:#050a0e}
 pre.code code{color:#bcd0de;font:11px/1.65 "DM Mono";white-space:pre}
+.pair-path{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px}
+.pair-path .button{padding:8px 12px;font-size:11px;white-space:nowrap}
