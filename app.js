@@ -146,54 +146,86 @@ async function loadHub() {
 }
 loadHub();
 
-/* Agent tokens. VybPort stops guessing at CLIs: any MCP agent connects through the profile instead. */
+/* Agent sub-profiles. Each coding agent gets a separate identity and replaceable credential. */
 let mcpScopes = [];
+const agentDate = (stamp) => stamp ? new Date(stamp * 1000).toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" }) : "never";
+function showAgentCredential(result) {
+  const issued = document.querySelector("#mcpIssued");
+  const endpoint = `${location.origin}${result.endpoint}`;
+  issued.hidden = false;
+  issued.innerHTML = `<b>Copy this API key now — VybPort stores only its hash.</b><code>${safe(result.token)}</code>
+    <small><b>${safe(result.agent_profile.identity)}</b> · expires ${safe(agentDate(result.agent_profile.expires_at))}<br>Endpoint: <b>${safe(endpoint)}</b><br>Header: <b>Authorization: Bearer &lt;this key&gt;</b><br>Keep it in the agent's MCP config or secret store, never a chat prompt.</small>
+    <span class="mcp-issued-actions"><button type="button" data-copy-key>Copy key</button><button type="button" data-clear-key>Clear from screen</button></span>`;
+}
 async function loadTokens() {
   const list = document.querySelector("#mcpList");
   if (!list) return;
   try {
-    const data = await vybApi("/api/agent-tokens");
+    const data = await vybApi("/api/agent-profiles");
     mcpScopes = data.scopes;
     if (!document.querySelector("#mcpScopes").children.length) {
       document.querySelector("#mcpScopes").innerHTML = data.scopes.map((scope) =>
-        `<label><input type="checkbox" value="${safe(scope)}"${scope === "profile" || scope === "street" ? " checked" : ""}> ${safe(scope)}</label>`).join("");
+        `<label${scope === "host" ? ` title="Required in addition to garage or arena for tools that write files or run commands on this machine."` : ""}><input type="checkbox" value="${safe(scope)}"${["profile", "street", "session"].includes(scope) ? " checked" : ""}> ${safe(scope === "host" ? "host access" : scope)}</label>`).join("");
     }
-    list.innerHTML = data.tokens.map((token) => {
-      const named = token.agent_name || token.label;
-      const state = token.revoked_at ? "revoked" : token.live ? "live" : token.registered_at ? "idle" : "not connected yet";
-      return `<div class="mcp-row${token.revoked_at ? " revoked" : ""}${token.live ? " live" : ""}">
-        <div><b>${safe(named)}</b><span>${safe(state)}${token.agent_kind ? ` · ${safe(token.agent_kind)}` : ""} · ${token.scopes.join(" ")}${token.open_messages ? ` · ${token.open_messages} waiting` : ""}</span>
-        ${token.cwd ? `<span class="mcp-cwd">${safe(token.cwd)}</span>` : ""}</div>
-        ${token.revoked_at ? "<span>revoked</span>"
-          : `<span class="mcp-acts">${token.scopes.includes("session") && token.registered_at ? `<button type="button" data-send="${token.id}">send</button>` : ""}<button type="button" data-revoke="${token.id}">revoke</button></span>`}</div>`;
-    }).join("") || `<p class="mcp-note">No agent tokens yet.</p>`;
-  } catch { list.innerHTML = `<p class="mcp-note">Sign in to mint an agent token.</p>`; }
+    list.innerHTML = data.agent_profiles.map((agent) => {
+      const runtime = agent.agent_name && agent.agent_name !== agent.name ? ` · runtime ${safe(agent.agent_name)}` : "";
+      const state = agent.credential_status === "revoked" ? "revoked" : agent.credential_status === "expired" ? "key expired" : agent.live ? "live" : agent.registered_at ? "idle" : "not connected yet";
+      return `<div class="mcp-row${agent.credential_status === "revoked" ? " revoked" : ""}${agent.live ? " live" : ""}">
+        <div><b>${safe(agent.name)} <small>${safe(agent.identity)}</small></b><span>${safe(state)}${agent.agent_kind ? ` · ${safe(agent.agent_kind)}` : ""}${runtime}</span>
+        <span>${safe(agent.scopes.join(" · "))} · key …${safe(agent.token_hint || "legacy")} · expires ${safe(agentDate(agent.expires_at))}</span>
+        ${agent.ssh ? `<span class="mcp-cwd">SSH ${safe(agent.ssh.fingerprint)}</span>` : ""}${agent.cwd ? `<span class="mcp-cwd">${safe(agent.cwd)}</span>` : ""}</div>
+        <span class="mcp-acts">${agent.credential_status === "active" && agent.scopes.includes("session") && agent.registered_at ? `<button type="button" data-send="${agent.id}">send</button>` : ""}
+          <button type="button" data-visibility="${agent.id}" data-public="${agent.public ? "1" : "0"}">${agent.public ? "make private" : "make public"}</button>
+          ${agent.credential_status !== "revoked" ? `<button type="button" data-rotate="${agent.id}">rotate key</button><button type="button" data-revoke="${agent.id}">revoke</button>` : ""}</span></div>`;
+    }).join("") || `<p class="mcp-note">No agent identities yet.</p>`;
+  } catch { list.innerHTML = `<p class="mcp-note">Sign in to create an agent identity.</p>`; }
 }
 document.querySelector("#mcpMint")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const scopes = [...document.querySelectorAll("#mcpScopes input:checked")].map((input) => input.value);
   try {
-    const result = await vybApi("/api/agent-tokens", { method: "POST", body: JSON.stringify({ label: document.querySelector("#mcpLabel").value.trim(), scopes }) });
-    const issued = document.querySelector("#mcpIssued");
-    issued.hidden = false;
-    issued.innerHTML = `<b>Copy this now — it is not stored anywhere you can read it again.</b><code>${safe(result.token)}</code>
-      <small>Point your agent at <b>POST http://127.0.0.1:4173/mcp</b> with <b>Authorization: Bearer</b> that token. Sets: ${safe(result.scopes.join(", "))}.</small>`;
-    document.querySelector("#mcpLabel").value = "";
+    const result = await vybApi("/api/agent-profiles", { method: "POST", body: JSON.stringify({
+      label: document.querySelector("#mcpLabel").value.trim(), slug: document.querySelector("#mcpSlug").value.trim(),
+      bio: document.querySelector("#mcpBio").value.trim(), ssh_public_key: document.querySelector("#mcpSshKey").value.trim(),
+      lifetime_days: Number(document.querySelector("#mcpLifetime").value), public: document.querySelector("#mcpPublic").checked, scopes
+    }) });
+    showAgentCredential(result);
+    event.target.reset();
     await loadTokens();
   } catch (error) { toast(error.message); }
 });
 document.querySelector("#mcpList")?.addEventListener("click", async (event) => {
-  const send = event.target.dataset?.send;
+  const button = event.target.closest("button");
+  if (!button) return;
+  const send = button.dataset.send;
   if (send) {
     const body = window.prompt("What should this agent go and do?");
     if (!body) return;
-    try { const result = await vybApi(`/api/agent-tokens/${send}/send`, { method: "POST", body: JSON.stringify({ body }) });
+    try { const result = await vybApi(`/api/agent-profiles/${send}/send`, { method: "POST", body: JSON.stringify({ body }) });
       toast(result.note); await loadTokens(); } catch (error) { toast(error.message); }
     return;
   }
-  const id = event.target.dataset?.revoke;
-  if (!id) return;
-  try { await vybApi("/api/agent-tokens/revoke", { method: "POST", body: JSON.stringify({ id: Number(id) }) }); await loadTokens(); toast("Token revoked."); }
+  if (button.dataset.rotate) {
+    if (!window.confirm("Rotate this agent's API key? The old key will stop working immediately.")) return;
+    try { const result = await vybApi(`/api/agent-profiles/${button.dataset.rotate}/rotate`, { method:"POST", body:JSON.stringify({}) });
+      showAgentCredential(result); await loadTokens(); toast("Agent API key rotated."); } catch (error) { toast(error.message); }
+    return;
+  }
+  if (button.dataset.visibility) {
+    try { await vybApi(`/api/agent-profiles/${button.dataset.visibility}/update`, { method:"POST", body:JSON.stringify({ public:button.dataset.public !== "1" }) });
+      await loadTokens(); toast(button.dataset.public === "1" ? "Agent profile is private." : "Agent profile is public."); } catch (error) { toast(error.message); }
+    return;
+  }
+  if (!button.dataset.revoke) return;
+  if (!window.confirm("Revoke this agent's API access? Its attributed history will remain.")) return;
+  try { await vybApi(`/api/agent-profiles/${button.dataset.revoke}/revoke`, { method: "POST", body: JSON.stringify({}) }); await loadTokens(); toast("Agent API access revoked."); }
   catch (error) { toast(error.message); }
+});
+document.querySelector("#mcpIssued")?.addEventListener("click", async (event) => {
+  if (event.target.closest("[data-clear-key]")) { event.currentTarget.hidden = true; event.currentTarget.replaceChildren(); return; }
+  if (!event.target.closest("[data-copy-key]")) return;
+  const key = event.currentTarget.querySelector("code")?.textContent || "";
+  try { await navigator.clipboard.writeText(key); toast("Agent API key copied."); }
+  catch { toast("Copy was blocked; select the key manually."); }
 });
 loadTokens();

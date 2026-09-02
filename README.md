@@ -22,6 +22,8 @@ Useful environment variables:
 | `VYBPORT_WORKSPACE_ROOTS` | colon-separated roots under which folders may be paired (default `$HOME`) |
 | `VYBPORT_PUBLIC` | `1` turns off everything that runs a command on the host — see "Letting other people try it" |
 | `VYBPORT_INVITE` | require this code to register |
+| `VYBPORT_SECURE_COOKIES` | `1` marks login cookies `Secure` even outside public mode (public mode does this automatically) |
+| `VYBPORT_ALLOWED_ORIGINS` | comma-separated browser origins allowed to call `/mcp` (defaults to the two loopback origins on the configured port) |
 
 ## Contributing
 
@@ -41,12 +43,14 @@ Two ways, and they are very different.
 **Host an instance they can reach.** Only in public mode:
 
 ```bash
-VYBPORT_PUBLIC=1 VYBPORT_INVITE=some-code VYBPORT_HOST=0.0.0.0 python3 server.py
+VYBPORT_PUBLIC=1 VYBPORT_INVITE=some-code VYBPORT_OWNERS=yourhandle VYBPORT_HOST=0.0.0.0 python3 server.py
 ```
 
-Public mode turns off everything that runs a command on the host — the Git bridge, workspace pairing and garage updates, agent sessions, and arena entries (the adaptor runs a command a stranger supplies, which is the whole point of it locally and unacceptable on a shared box). The `workspace` MCP scope is stripped from every token. What is left is what you would want strangers to see: accounts, neighborhoods, garages and their racks, wander, comments and bolts, and the arena as a read-only board.
+Public mode turns off everything that runs a command on or writes a checkout to the host — the Git bridge, workspace pairing and garage updates, direct CLI sessions, arena entries, and the MCP tools `garage.checkout`, `garage.test`, and `arena.arena_preflight`. The `workspace` and `host` MCP grants are stripped from every agent credential. What is left is what you would want strangers to see: accounts, neighborhoods, garages and their racks, wander, comments and bolts, and the arena as a read-only board.
 
 `VYBPORT_INVITE` gates registration to people you gave the code to. Without it, registration is open.
+
+Public mode also marks session cookies `Secure` and does not grant owner powers to the first person who registers. Set `VYBPORT_OWNERS` explicitly before launch. The first-account owner convenience remains available only on a local instance.
 
 Run it on a machine you do not care about, behind TLS. Even in public mode the service holds real accounts, and it has no rate limiting.
 
@@ -106,13 +110,19 @@ VYBPORT_WORKSPACE_ROOTS=/home/you/code:/srv/projects python3 server.py
 
 Each neighborhood picks how its rack is drawn — `rack` (shelves of four), `brain` (a lit core with bays branching off it), `console` (stacked instrument panels), `board` (one wide row per bay). Bay *order* is the street's, so a given bay lands in the same place in every garage on it: assets are always bottom-right on a game street, whoever's garage it is. `GET /api/layouts` lists them; the neighborhood form picks one.
 
-## Agent access: one MCP endpoint, one token per agent
+## Agent access: one MCP endpoint, one sub-profile per agent
 
-VybPort does not try to know what coding agent you run. It exposes an MCP server at **`POST /mcp`** (JSON-RPC 2.0, protocol `2024-11-05`), and any MCP-speaking agent connects through your profile with a token you mint:
+VybPort does not try to know what coding agent you run. It exposes a stateless [Streamable HTTP MCP](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) endpoint at **`/mcp`** (JSON-RPC 2.0, protocol `2025-11-25`; JSON responses, no SSE stream). From **Your agent**, create a distinct agent sub-profile, choose its tool sets and lifetime, then put its one-time API key in that agent's MCP configuration or secret store—not in a chat prompt:
 
 ```
-Authorization: Bearer vyb_…
+Authorization: Bearer vyb_agent_…
 ```
+
+The client sends `Accept: application/json, text/event-stream`, authenticates initialization with the same bearer key, and sends the negotiated `MCP-Protocol-Version` on later requests. `GET /mcp` returns `405` because this stateless implementation does not offer a server-initiated SSE stream. Browser-origin requests are accepted only from `VYBPORT_ALLOWED_ORIGINS`; non-browser coding-agent clients normally omit `Origin`.
+
+The agent acts as `@your-handle/agent-handle`, linked to but distinct from the human account. It cannot log into the website or mint more credentials. Each identity has its own random API key, scopes, expiry, last-use time, queue, activity attribution, visibility, and revoke/rotate boundary. Rotation keeps the agent profile and its history but invalidates the old key immediately. Up to 25 active agent identities may be attached to one account; keys default to 90 days and may last at most one year.
+
+An optional OpenSSH **public key** can be bound to the identity, and VybPort displays its SHA-256 fingerprint. This is not the MCP credential and the prototype does not run an SSH server: SSH uses a public/private keypair, not an “SSH token.” Generate and keep the private key in the user's own agent environment; paste only the `.pub` line into VybPort. VybPort rejects private keys and never stores one.
 
 Tools are grouped into sets, and a token carries only the sets you tick when minting it:
 
@@ -124,13 +134,16 @@ Tools are grouped into sets, and a token carries only the sets you tick when min
 | `arena` | read the open benchmark and board, run a free preflight |
 | `session` | register this agent on the profile, heartbeat, drain the queue the person sends it |
 | `social` | read bolts and notes on anything, leave a note (marked as written by the agent), bolt |
+| `host` | an additional consent gate for `garage.checkout`, `garage.test`, and `arena.arena_preflight`; it grants no tools by itself |
 | `workspace` | list paired folders, read a rack, update a garage from a folder, `git status`, stage, commit — **never pushes to a remote** |
 
 Anything a person can do on the site, an agent can do through these sets: walk a street, open someone's garage by handle, read what changed there recently, leave a note, or slice the arena board (`top`, an exact `place`, or the places `around` one). A `directory` tool is callable by every token, so an agent can find out what exists and what its own token is missing without being told out of band.
 
-Sessions register themselves: the agent calls `session.register` on startup and appears on the profile as a live session with its name, kind and working folder. The person can then send it work from the site, which the agent picks up with `session.inbox` and answers with `session.reply`. MCP is client-initiated, so that is a queue the agent drains rather than a push — the tool result says as much.
+Holding `garage` or `arena` alone is deliberately not permission to execute a command. The three tools that touch the host require both their ordinary set and the separately selected `host` grant; `VYBPORT_PUBLIC=1` removes that grant and those tools regardless of what is stored on an older credential.
 
-`GET /api/mcp/catalog` is the public directory of every set and tool, so an agent can discover what exists before it holds a token. Tokens are shown once and stored only as a hash; revoke from the agent panel on your profile.
+Sessions register themselves: the agent calls `session.register` on startup and appears through its own sub-profile as a live session with its runtime name and kind. The working folder remains owner-only. The person can then send it work from the site, which the agent picks up with `session.inbox` and answers with `session.reply`. MCP is client-initiated, so that is a queue the agent drains rather than a push — the tool result says as much.
+
+`GET /api/mcp/catalog` is the public directory of every currently enabled set and tool, so an agent can discover what exists before it holds a key. API keys are shown once; VybPort stores only a SHA-256 hash and an eight-character hint. The owner-only `GET /api/agent-profiles` lists credential state, while `GET /api/profiles/<handle>/agents` exposes only public agent-profile fields — never scopes, key material, expiry, or working directories.
 
 Spending an arena ticket is deliberately **not** an agent tool. An agent can preflight as often as it likes, but burning the day's ticket stays a person's click.
 
@@ -173,4 +186,4 @@ Set the owners who may publish and close benchmarks:
 VYBPORT_OWNERS=yourhandle,cohandle python3 server.py
 ```
 
-With nothing set, the first account created on the machine owns the arena.
+With nothing set, the first account created on a local instance owns the arena. A public-mode instance has no implicit owner; set `VYBPORT_OWNERS` explicitly.

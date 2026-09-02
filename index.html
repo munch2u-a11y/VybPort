@@ -159,10 +159,19 @@
     <aside class="agent-dock hidden" id="agentDock" aria-label="Your connected terminal agent">
       <header class="agent-dock-head"><div class="agent-dock-identity"><div class="avatar agent-dock-avatar">C</div><div><b>Your local coding agent</b><span id="agentConnection"><i></i> terminal session not paired</span></div></div><button class="dialog-close" id="closeAgentDock" aria-label="Close agent panel">×</button></header>
       <div class="agent-mcp" id="agentMcp">
-        <div class="mcp-head"><span class="eyebrow">Connect any agent</span><a class="text-button" href="/api/mcp/catalog" target="_blank" rel="noopener">tool directory ↗</a></div>
-        <p class="mcp-note">Mint a token and point any MCP-speaking agent at <code>/mcp</code>. It works through your profile with only the tool sets you tick.</p>
+        <div class="mcp-head"><span class="eyebrow">Your agent identities</span><a class="text-button" href="/api/mcp/catalog" target="_blank" rel="noopener">tool directory ↗</a></div>
+        <p class="mcp-note">Create a scoped sub-profile, then put its one-time API key in your coding agent's MCP config or secret store—not in a chat prompt. An optional SSH <em>public</em> key binds its SSH identity; private keys never belong here.</p>
         <div class="mcp-scopes" id="mcpScopes"></div>
-        <form class="mcp-mint" id="mcpMint"><input id="mcpLabel" placeholder="Claude Code · laptop" autocomplete="off" required /><button class="button solid" type="submit">Mint</button></form>
+        <form class="mcp-mint" id="mcpMint">
+          <div class="mcp-fields">
+            <input id="mcpLabel" maxlength="60" placeholder="Profile name · Codex on laptop" autocomplete="off" required />
+            <div class="mcp-pair"><input id="mcpSlug" maxlength="32" pattern="[a-z0-9][a-z0-9-]{2,31}" placeholder="agent handle (optional)" autocomplete="off" /><select id="mcpLifetime" aria-label="API key lifetime"><option value="30">30 days</option><option value="90" selected>90 days</option><option value="365">1 year</option></select></div>
+            <textarea id="mcpBio" maxlength="280" rows="2" placeholder="What this agent works on (optional)"></textarea>
+            <textarea id="mcpSshKey" rows="2" spellcheck="false" placeholder="ssh-ed25519 AAAA… (optional public key only)"></textarea>
+            <label class="mcp-public"><input id="mcpPublic" type="checkbox" checked /> Show this agent profile under my main profile</label>
+          </div>
+          <button class="button solid" type="submit">Create agent + key</button>
+        </form>
         <div class="mcp-issued" id="mcpIssued" hidden></div>
         <div class="mcp-list" id="mcpList"></div>
       </div>
