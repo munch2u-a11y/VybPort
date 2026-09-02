@@ -23,7 +23,8 @@ const steps=[
  {label:'across the district',blurb:'different stack, open door'}
 ];
 const TRAY='vybport.street.tray';
-let filter='all',radius='near',query='',badges=new Map(),pinned=null,lowBlock=0,highBlock=1,loading=false,edgeObserver,slotFrame,slotNodes=[],centreNode=null,providers=[];
+let filter='all',radius='near',query='',badges=new Map(),pinned=null,lowBlock=0,highBlock=1,loading=false,edgeObserver,slotFrame,slotNodes=[],centreNode=null;
+let tab='all',favorites=new Set(),friends=new Set(),asked=new Set(),favoriteGarages=[];
 const $=s=>document.querySelector(s);
 const safe=v=>String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),2400)};
@@ -36,8 +37,19 @@ function shared(item){return item.tags.filter(tag=>myFocus.includes(tag))}
 function step(item){const count=shared(item).length;return count>=3?0:count===2?1:count===1?2:3}
 function withinRadius(item){const distance=step(item);return radius==='district'||(radius==='near'?distance<=2:distance<=1)}
 function pool(){const local=hood?garages.filter(item=>item.hood===hood.slug):garages;return [...liveGarages,...local]}
+/* Favorites and friends are not a property of the street you happen to be standing on, so those two
+   tabs walk every street at once; only "all doors" is bounded by this neighborhood. */
+function tabPool(){
+ if(tab==='all')return pool();
+ const seen=new Map();
+ for(const item of [...liveGarages,...favoriteGarages,...garages])if(!seen.has(item.id))seen.set(item.id,item);
+ return [...seen.values()]}
 function activeGarages(){const needle=query.trim().toLowerCase(),searching=needle.length>0;
- return pool().filter(item=>(filter==='all'||item.tags.includes(filter))&&(searching||withinRadius(item))&&`${item.owner} ${item.handle} ${item.kind} ${item.display} ${item.post} ${item.tags.join(' ')}`.toLowerCase().includes(needle))
+ /* Walking distance decides what is on the street; a garage you chose yourself is always in reach. */
+ const kept=tabPool().filter(item=>tab==='favorites'?favorites.has(item.id)
+  :tab==='friends'?(item.live&&friends.has(item.user))
+  :(searching||withinRadius(item)));
+ return kept.filter(item=>(filter==='all'||item.tags.includes(filter))&&`${item.owner} ${item.handle} ${item.kind} ${item.display} ${item.post} ${item.tags.join(' ')}`.toLowerCase().includes(needle))
   .sort((a,b)=>step(a)-step(b)||a.age-b.age)}
 function orderForBlock(block){const items=activeGarages();if(!items.length)return[];const shift=((block%items.length)+items.length)%items.length;return[...items.slice(shift),...items.slice(0,shift)]}
 
@@ -79,6 +91,8 @@ function unitMarkup(item,block,number){const distance=step(item),overlap=shared(
     <button data-like="${item.id}" class="bolt">⚡ bolt</button>
     <button data-comment="${item.id}">◌ note</button>
     <button data-activity="${item.id}" class="activity-toggle">▤ recent</button>
+    <button data-favorite="${item.id}" class="favorite${favorites.has(item.id)?' done':''}">${favorites.has(item.id)?'★ favorited':'☆ favorite'}</button>
+    ${item.live?`<button data-friend="${item.id}" class="friend${friends.has(item.user)?' done':''}"${friends.has(item.user)||asked.has(item.user)?' disabled':''}>${friends.has(item.user)?'◈ friends':asked.has(item.user)?'◇ asked':'＋ friend'}</button>`:''}
     <button data-clone="${item.id}" class="clone${cloned?' done':''}">${item.live?(cloned?`✓ ${saved.length} in locker`:'⑂ save modules'):(cloned?'✓ saved':'⑂ save '+safe(item.repo))}</button>
     <button data-pin="${item.id}">✦ hand to agent</button>
    </div>${ribbon(item)}
@@ -129,13 +143,17 @@ function trimBehind(){const feed=$('#streetFeed');if(highBlock-lowBlock<5)return
  const before=feed.scrollWidth;stale.forEach(node=>node.remove());
  feed.scrollLeft-=before-feed.scrollWidth}
 function resetStreet(){lowBlock=0;highBlock=1;const feed=$('#streetFeed'),items=activeGarages();
- feed.innerHTML=items.length?`${blockMarkup(0)}${blockMarkup(1)}<i class="street-sentinel" id="bottomStreetSentinel"></i>`:'<div class="street-empty">Nothing open at this walking distance. Widen the radius, or search — every garage stays reachable by name.</div>';
+ feed.innerHTML=items.length?`${blockMarkup(0)}${blockMarkup(1)}<i class="street-sentinel" id="bottomStreetSentinel"></i>`:`<div class="street-empty">${tab==='favorites'?'No favorites yet. Star a garage from any street and it waits for you here.'
+  :tab==='friends'?'No friends on VybPort yet. Ask someone from their garage and they will appear here once they agree.'
+  :'Nothing open at this walking distance. Widen the radius, or search — every garage stays reachable by name.'}</div>`;
  /* Open the walk already standing in the row rather than at the end of it, so there are doors on
     both sides of you from the first frame. */
  const third=feed.children[2];
  feed.scrollLeft=third?third.offsetLeft+third.offsetWidth/2-feed.clientWidth/2:0;
  updatePosition();collectDepthNodes();if(items.length)observeStreetEdges()}
 function updatePosition(){const items=activeGarages(),close=items.filter(item=>step(item)<=1).length,name=hood?hood.name:'this neighborhood';
+ if(tab==='favorites'){$('#streetPosition').textContent=`Your favorites · ${items.length} garage${items.length===1?'':'s'} kept across every street.`;return}
+ if(tab==='friends'){$('#streetPosition').textContent=`Your friends · ${items.length} garage${items.length===1?'':'s'} · friends are mutual, so both of you agreed to this.`;return}
  $('#streetPosition').textContent=query?`Searching ${name} · ${items.length} garage${items.length===1?'':'s'} answer to “${query}”.`
   :`${name} · ${items.length} open doors · ${close} on your block (${myFocus.join(', ')}) · quiet garages stay findable by search, friends, or a direct link.`}
 
@@ -143,7 +161,7 @@ function updatePosition(){const items=activeGarages(),close=items.filter(item=>s
 function fromGarage(row){const modules=row.modules||[],flagship=row.flagship||{};
  return {id:`garage:${row.handle}:${row.neighborhood}`,user:row.handle,mark:row.name.slice(0,2).toUpperCase(),
   owner:row.name,handle:`@${row.handle}`,kind:row.neighborhood_name,hue:row.hue,rig:'lattice',
-  display:modules.length?`${modules.length} of ${(hood&&hood.slots.length)||0} bays mounted`:'bays still empty',
+  display:modules.length?(hood&&hood.slug===row.neighborhood?`${modules.length} of ${hood.slots.length} bays mounted`:`${modules.length} bays mounted`):'bays still empty',
   displayCopy:row.tagline||'',post:row.tagline||`${row.display_name} keeps a garage on ${row.neighborhood_name}.`,
   tags:row.tags||[],when:'live',age:.1,repo:`${row.handle}/${row.name.toLowerCase().replace(/\s+/g,'-')}`,
   live:true,projectId:flagship.id,modules,publishedFiles:flagship.published_files||{}}}
@@ -186,6 +204,25 @@ async function clone(item,button){
 async function saveModules(item,article){const picker=article.querySelector('.module-picker'),slots=[...picker.querySelectorAll('input:checked')].map(input=>input.value);if(!slots.length){toast('Choose at least one module.');return}const button=picker.querySelector('[data-save-modules]');button.disabled=true;button.textContent='Saving…';
  try{const result=await api(`/api/garages/${myGarage.id}/borrow`,{method:'POST',body:JSON.stringify({project:item.projectId,slots})});myGarage=result.garage;picker.remove();const trigger=article.querySelector('[data-clone]'),count=savedSlots(item).length;trigger.classList.add('done');trigger.textContent=`✓ ${count} in locker`;updateTray();toast(`${slots.length} module${slots.length===1?'':'s'} saved. ${result.saved_files||0} reviewed code file${result.saved_files===1?'':'s'} came with them.`)}
  catch(error){button.disabled=false;button.textContent='Save selection to locker';toast(error.message)}}
+/* Keeping a garage is private and needs no one's agreement, so it answers immediately. Asking to be
+   someone's friend does need their agreement, so the button only reports that the ask went out. */
+async function favorite(item,button){
+ try{const result=await api('/api/favorites',{method:'POST',body:JSON.stringify(
+   {target:item.id,label:item.owner,handle:item.handle,neighborhood:hood?.slug||''})});
+  favorites=new Set(result.favorites.map(row=>row.target));
+  button.classList.toggle('done',result.favorited);
+  button.textContent=result.favorited?'★ favorited':'☆ favorite';
+  toast(result.favorited?`${item.owner} is on your favorites tab.`:`${item.owner} is off your favorites.`);
+  if(tab==='favorites')resetStreet()}
+ catch(error){toast(error.message)}}
+async function befriend(item,button){
+ button.disabled=true;
+ try{const result=await api('/api/friends',{method:'POST',body:JSON.stringify({handle:item.user})});
+  friends=new Set(result.friends.map(row=>row.handle));
+  if(friends.has(item.user)){button.textContent='◈ friends';button.classList.add('done');toast(`You and ${item.owner} are friends.`)}
+  else{asked.add(item.user);button.textContent='◇ asked';toast(`Asked ${item.owner} to be friends.`)}}
+ catch(error){button.disabled=false;toast(error.message)}}
+
 /* The garage's own thread, read without leaving the row. */
 async function toggleActivity(item,button){
  const post=button.closest('.unit-post'),open=post.querySelector('.post-activity');
@@ -203,61 +240,45 @@ function pin(item){pinned=item;openDock();
  $('#agentContext').innerHTML=`<span class="eyebrow">Pinned context</span><b>${safe(item.owner)} · ${safe(item.display)}</b><p>${safe(item.post)}</p>`;
  $('#wanderAgentInput').focus()}
 
-/* Your own coding agent, whichever one it is: the server reports which CLIs this machine has,
-   and anything it does not know about links by the command its own CLI takes. */
+/* The roaming companion is always the user's own remote MCP session. Host CLIs never walk the street. */
 function selectedWanderAgent(){return agentConnections.find(item=>item.key===$('#wanderAgentSelect').value)||null}
 function wanderAgentContext(){return{schema:'vybport.context/1',view:'wander',neighborhood:hood?.slug||'',pinned:pinned?{target:pinned.id,owner:pinned.owner,display:pinned.display,post:pinned.post}:null}}
 function renderWanderAgentHistory(messages=[]){
  const node=$('#agentMessages');
- if(!messages.length){const selected=selectedWanderAgent(),copy=selected?.kind==='mcp'?'This agent profile has a private MCP inbox. Messages wait here until it checks in.':'This private terminal conversation follows you into your garage.';node.innerHTML=`<div class="sidecar-message system">${safe(copy)}</div>`;return}
+ if(!messages.length){node.innerHTML='<div class="sidecar-message system">This agent profile has a private MCP inbox. Messages wait here until your own coding session checks in.</div>';return}
  node.innerHTML=messages.map(message=>`<div class="sidecar-message ${message.role==='user'?'user':'system'}">${safe(message.body)}</div>`).join('')
 }
 async function loadWanderAgentHistory({scroll=false}={}){
  const selected=selectedWanderAgent();if(!selected){renderWanderAgentHistory();return}
- const request=++agentHistoryRequest,path=selected.kind==='mcp'?`/api/agent-profiles/${selected.id}/messages`:`/api/agents/${selected.id}/history`;
+ const request=++agentHistoryRequest,path=`/api/agent-profiles/${selected.id}/messages`;
  try{const data=await api(path);if(request!==agentHistoryRequest||selected.key!==$('#wanderAgentSelect').value)return;renderWanderAgentHistory(data.messages||[]);if(scroll)requestAnimationFrame(()=>{$('#agentMessages').scrollTop=$('#agentMessages').scrollHeight})}
  catch(error){renderWanderAgentHistory([{role:'system',body:error.message}])}
 }
-async function loadProviders(){try{providers=(await api('/api/agents/providers')).providers}catch{providers=[]}renderProviders()}
-function renderProviders(){const startable=providers.filter(item=>item.starts&&item.detected),missing=providers.filter(item=>item.starts&&!item.detected);
- $('#providerButtons').innerHTML=[
-  ...startable.map(item=>`<button data-start="${item.key}">＋ ${safe(item.label)}</button>`),
-  ...missing.map(item=>`<button disabled title="${safe(item.binary)} is not on this machine's PATH">${safe(item.label)} · not found</button>`),
-  '<button class="link" data-link="1">⛓ Link a session…</button>'].join('');
- $('#providerNote').textContent=startable.length
-  ?`On this machine: ${startable.map(item=>item.label).join(', ')}. Anything else — Gemini, Cursor, Antigravity, your own script — links by the command its CLI takes.`
-  :'No coding-agent CLI found on PATH. You can still link any session by giving VybPort the command its CLI takes.'}
-function linkProvider(){return providers.find(item=>item.key===$('#linkProvider').value)}
-function syncLinkForm(){const item=linkProvider();if(!item)return;
- $('#linkIdLabel').textContent=item.id_label;$('#linkCommandWrap').hidden=!item.needs_command;
- $('#linkHint').textContent=item.hint;$('#linkLabel').placeholder=`${item.label} · Habitus`;
- $('#linkThread').placeholder=`Paste the exact ${item.id_label} from your terminal`}
-function openLinkForm(){if(!providers.length){toast('The local VybPort service is not answering, so no coding agents can be listed.');return}$('#linkProvider').innerHTML=providers.map(item=>`<option value="${item.key}">${safe(item.label)}${item.binary&&!item.detected?' · not found':''}</option>`).join('');syncLinkForm();$('#linkAgentForm').hidden=false;$('#linkLabel').focus()}
-async function startAgent(provider){const item=providers.find(value=>value.key===provider);
- try{const {user}=await api('/api/auth/me');if(!user){location.href='./register.html';return}
-  openDock();
-  $('#composeNote').textContent=`Opening a ${item.label} session…`;
-  document.querySelectorAll('#providerButtons button').forEach(button=>button.disabled=true);
-  const result=await api('/api/agents/start',{method:'POST',body:JSON.stringify({provider,message:'Introduce yourself briefly and offer to inspect this item with me.',context:wanderAgentContext()})});
-  agentState.select(agentState.key('local',result.agent.id));await loadAgents();await loadWanderAgentHistory({scroll:true});
-  toast(`${result.agent.label} is walking with you.`)}
- catch(error){toast(error.message)}
- finally{$('#composeNote').textContent='';renderProviders()}}
-
-/* Local account + agent session: nothing leaves your machine unless you pin it. */
+/* The site queues context; the user's session pulls it through its own scoped MCP credential. */
+async function loadKept(){
+ try{const [fav,pals]=await Promise.all([api('/api/favorites'),api('/api/friends')]);
+  favorites=new Set(fav.favorites.map(row=>row.target));
+  friends=new Set(pals.friends.map(row=>row.handle));
+  asked=new Set(pals.outgoing.map(row=>row.handle));
+  /* A favorite kept on another street still has to be findable from this one. */
+  const elsewhere=[...new Set(fav.favorites.map(row=>row.neighborhood).filter(slug=>slug&&slug!==hood?.slug))];
+  const fetched=await Promise.all(elsewhere.map(slug=>
+   api(`/api/garages?neighborhood=${encodeURIComponent(slug)}`).then(data=>data.garages.map(fromGarage)).catch(()=>[])));
+  favoriteGarages=fetched.flat();
+  resetStreet()}
+ catch{}}
 async function loadBadges(){try{const result=await api('/api/badges');badges=new Map(result.badges.map(badge=>[badge.target,badge]));resetStreet()}catch{}}
 async function loadAgents(){try{const {user}=await api('/api/auth/me');
  if(!user){agentConnections=[];$('#agentState').textContent='Create a local account to walk with an agent.';renderWanderAgentHistory();return}
  $('#agentAccountLink').textContent=`Signed in as ${user.display_name}`;$('#agentAccountLink').href='./index.html';
- const [localResult,profileResult]=await Promise.all([api('/api/agents'),api('/api/agent-profiles')]);
- const locals=(localResult.agents||[]).map(item=>({key:agentState.key('local',item.id),kind:'local',id:item.id,label:item.label,detail:item.provider_label||item.provider}));
+ const profileResult=await api('/api/agent-profiles');
  const profiles=(profileResult.agent_profiles||[]).filter(item=>item.credential_status==='active'&&(item.scopes||[]).includes('session')).map(item=>({key:agentState.key('mcp',item.id),kind:'mcp',id:item.id,label:item.agent_name||item.label,detail:item.live?'online via MCP':'MCP inbox'}));
- agentConnections=[...profiles,...locals];const selected=agentState.choose(agentConnections,'local'),select=$('#wanderAgentSelect');
- select.innerHTML=`${profiles.length?`<optgroup label="MCP agent profiles">${profiles.map(item=>`<option value="${item.key}">${safe(item.label)} · ${safe(item.detail)}</option>`).join('')}</optgroup>`:''}${locals.length?`<optgroup label="Linked terminal sessions">${locals.map(item=>`<option value="${item.key}">${safe(item.label)} · ${safe(item.detail)}</option>`).join('')}</optgroup>`:''}`||'<option value="">No connected agent</option>';
+ agentConnections=profiles;const selected=agentState.choose(agentConnections,'mcp'),select=$('#wanderAgentSelect');
+ select.innerHTML=profiles.length?`<optgroup label="Remote MCP agents">${profiles.map(item=>`<option value="${item.key}">${safe(item.label)} · ${safe(item.detail)}</option>`).join('')}</optgroup>`:'<option value="">Connect an MCP agent from your profile</option>';
  select.value=selected?.key||'';if(selected)agentState.select(selected.key);
- $('#agentState').textContent=selected?`${selected.label} · ${selected.detail}. This conversation follows you into the garage.`:'No agent linked yet — start one below, or link the one already open in your terminal.';
+ $('#agentState').textContent=selected?`${selected.label} · ${selected.detail}. Its MCP inbox follows you between rooms.`:'No remote agent connected yet — create an MCP profile from your profile page.';
  await loadWanderAgentHistory()}
- catch{agentConnections=[];$('#agentState').textContent='Local agent service unavailable.';renderWanderAgentHistory()}}
+ catch{agentConnections=[];$('#agentState').textContent='Remote agent inbox unavailable.';renderWanderAgentHistory()}}
 function openDock(){$('#agentSidecar').hidden=false;agentState.setOpen(true);loadWanderAgentHistory({scroll:true})}
 function closeDock(){$('#agentSidecar').hidden=true;agentState.setOpen(false)}
 
@@ -267,11 +288,13 @@ document.querySelector('.wander-controls').onclick=event=>{const button=event.ta
  if(button.dataset.radius){radius=button.dataset.radius;document.querySelectorAll('[data-radius]').forEach(other=>other.classList.toggle('active',other===button))}
  resetStreet();scrollTo({top:0,behavior:'instant'})};
 $('#streetFeed').onclick=async event=>{const button=event.target.closest('button');if(!button)return;
- const id=button.dataset.like||button.dataset.comment||button.dataset.pin||button.dataset.clone||button.dataset.saveModules||button.dataset.cancelSave||button.dataset.activity;
+ const id=button.dataset.like||button.dataset.comment||button.dataset.pin||button.dataset.clone||button.dataset.saveModules||button.dataset.cancelSave||button.dataset.activity||button.dataset.favorite||button.dataset.friend;
  const item=pool().find(value=>value.id===id);if(!item)return;
  if(button.dataset.cancelSave){button.closest('.module-picker')?.remove();return}
  if(button.dataset.saveModules){saveModules(item,button.closest('.garage-unit'));return}
  if(button.dataset.activity){toggleActivity(item,button);return}
+ if(button.dataset.favorite){favorite(item,button);return}
+ if(button.dataset.friend){befriend(item,button);return}
  if(button.dataset.pin){pin(item);return}
  if(button.dataset.clone){clone(item,button);return}
  if(button.dataset.comment){const body=window.prompt(`Leave ${item.owner} a useful public note`);if(!body)return;
@@ -283,25 +306,11 @@ $('#wanderAgentForm').onsubmit=async event=>{event.preventDefault();
  if(agentSending)return;const input=$('#wanderAgentInput'),selected=selectedWanderAgent(),message=input.value.trim();if(!message)return;
  if(!selected){toast('Choose or connect an agent first.');return}agentSending=true;agentState.setOpen(true);
  $('#agentMessages').insertAdjacentHTML('beforeend',`<div class="sidecar-message user">${safe(message)}</div>`);
- try{if(selected.kind==='mcp')await api(`/api/agent-profiles/${selected.id}/send`,{method:'POST',body:JSON.stringify({kind:'task',body:message,context:wanderAgentContext()})});
-  else await api(`/api/agents/${selected.id}/message`,{method:'POST',body:JSON.stringify({mode:'chat',message,context:wanderAgentContext()})});
-  input.value='';await loadWanderAgentHistory({scroll:true});toast(selected.kind==='mcp'?'Sent to the agent inbox.':'Your linked terminal agent replied.')}
+ try{await api(`/api/agent-profiles/${selected.id}/send`,{method:'POST',body:JSON.stringify({kind:'task',body:message,context:wanderAgentContext()})});
+  input.value='';await loadWanderAgentHistory({scroll:true});toast('Sent to your agent\'s MCP inbox.')}
  catch(error){await loadWanderAgentHistory({scroll:true});$('#agentMessages').insertAdjacentHTML('beforeend',`<div class="sidecar-message system">${safe(error.message)}</div>`)}
  finally{agentSending=false}};
-$('#wanderAgentSelect').onchange=async event=>{agentState.select(event.target.value);const selected=selectedWanderAgent();$('#agentState').textContent=selected?`${selected.label} · ${selected.detail}. This conversation follows you into the garage.`:'Choose or connect an agent.';await loadWanderAgentHistory({scroll:true})};
-$('#agentProviders').onclick=event=>{const button=event.target.closest('button');if(!button)return;
- if(button.dataset.link){const form=$('#linkAgentForm');form.hidden?openLinkForm():form.hidden=true;return}
- if(button.dataset.start)startAgent(button.dataset.start)};
-$('#linkProvider').onchange=syncLinkForm;
-$('#cancelLink').onclick=()=>{$('#linkAgentForm').hidden=true};
-$('#linkAgentForm').onsubmit=async event=>{event.preventDefault();
- const provider=$('#linkProvider').value,label=$('#linkLabel').value.trim(),thread_id=$('#linkThread').value.trim(),command=$('#linkCommand').value.trim();
- try{const {user}=await api('/api/auth/me');if(!user){location.href='./register.html';return}
-  const result=await api('/api/agents',{method:'POST',body:JSON.stringify({provider,label,thread_id,command})});
-  agentState.select(agentState.key('local',result.agent.id));await loadAgents();await loadWanderAgentHistory({scroll:true});
-  $('#linkAgentForm').hidden=true;$('#linkLabel').value='';$('#linkThread').value='';$('#linkCommand').value='';
-  toast(`${result.agent.label} is walking with you.`)}
- catch(error){toast(error.message)}};
+$('#wanderAgentSelect').onchange=async event=>{agentState.select(event.target.value);const selected=selectedWanderAgent();$('#agentState').textContent=selected?`${selected.label} · ${selected.detail}. Its MCP inbox follows you between rooms.`:'Connect an MCP agent from your profile.';await loadWanderAgentHistory({scroll:true})};
 
 $('#streetFeed').addEventListener('scroll',queueDepths,{passive:true});
 addEventListener('resize',queueDepths);
@@ -324,4 +333,8 @@ $('#streetFeed').addEventListener('click',event=>{
  event.preventDefault();streetTip.hidden=true;
  unit.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})});
 if(innerWidth<=860&&!agentState.isOpen())$('#agentSidecar').hidden=true;else if(agentState.isOpen())openDock();
-updateTray();resetStreet();loadStreet().catch(()=>{});loadBadges();loadAgents();loadProviders();
+$('#streetTabs').onclick=event=>{const button=event.target.closest('button');if(!button)return;
+ tab=button.dataset.tab;
+ document.querySelectorAll('#streetTabs button').forEach(other=>other.classList.toggle('active',other===button));
+ resetStreet()};
+updateTray();resetStreet();loadStreet().then(loadKept).catch(()=>{});loadBadges();loadAgents();

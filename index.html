@@ -55,6 +55,14 @@
         <div class="hub-grid" id="hubGrid"></div>
       </section>
 
+      <section class="friends-panel" aria-labelledby="friends-title">
+        <header><div><span class="eyebrow">Your people</span><h2 id="friends-title">Friends</h2></div>
+          <span class="friends-count" id="friendsCount">0</span></header>
+        <p class="friends-copy">Friendship is mutual: both of you agreed. Favorites are private and need nobody's permission — they live on the Favorites tab out on the street.</p>
+        <div id="friendRequests"></div>
+        <div class="friends-list" id="friendsList"></div>
+      </section>
+
       <section class="front-page" aria-labelledby="front-page-title">
         <div class="front-page-head"><div><span class="eyebrow">Custom profile skin</span><h2 id="front-page-title">Nemo.exe is online</h2></div><div><span class="skin-status">agent-authored HTML</span><a class="mini-button" href="./skins/nemo.html" target="_blank" rel="noopener">View source ↗</a></div></div>
         <iframe class="profile-skin" src="./skins/nemo.html" sandbox title="Nemo's custom VybPort profile skin"></iframe>
@@ -157,9 +165,9 @@
       <form id="commitForm"><button type="button" class="dialog-close" id="closeCommit" aria-label="Close">×</button><span class="eyebrow">Local Git commit</span><h2 id="commitTitle">Name this checkpoint</h2><p>Only the staged files will be included. Nothing becomes public from this action.</p><input id="commitMessage" required maxlength="140" placeholder="e.g. feat: add public garage profile" /><button class="button solid" type="submit">Create local commit</button></form>
     </div>
     <aside class="agent-dock hidden" id="agentDock" aria-label="Your selected agent conversation">
-      <header class="agent-dock-head"><div class="agent-dock-identity"><div class="avatar agent-dock-avatar">✦</div><div><b>Your selected agent</b><span id="agentConnection"><i></i> checking connection</span></div></div><button class="dialog-close" id="closeAgentDock" aria-label="Close agent panel">×</button></header>
+      <header class="agent-dock-head"><div class="agent-dock-identity"><div class="avatar agent-dock-avatar">✦</div><div><b>Your remote agent</b><span id="agentConnection"><i></i> checking MCP connection</span></div></div><button class="dialog-close" id="closeAgentDock" aria-label="Close agent panel">×</button></header>
       <details class="agent-mcp" id="agentMcp">
-        <summary>Agent identities &amp; API keys <span>manage</span></summary>
+        <summary>Connect an agent via MCP <span>manage</span></summary>
         <div class="mcp-head"><span class="eyebrow">Your agent identities</span><a class="text-button" href="/api/mcp/catalog" target="_blank" rel="noopener">tool directory ↗</a></div>
         <p class="mcp-note">Create a scoped sub-profile, then put its one-time API key in your coding agent's MCP config or secret store—not in a chat prompt. An optional SSH <em>public</em> key binds its SSH identity; private keys never belong here.</p>
         <div class="mcp-scopes" id="mcpScopes"></div>
@@ -176,10 +184,10 @@
         <div class="mcp-issued" id="mcpIssued" hidden></div>
         <div class="mcp-list" id="mcpList"></div>
       </details>
-      <div class="agent-picker"><select id="agentSelect" aria-label="Select agent connection"><option value="">Checking your agents…</option></select></div>
-      <div class="agent-context" id="agentContext"><span class="eyebrow">Current context</span><b>Nothing pinned yet</b><p>Open a build and send it here to create a compact task packet for your own terminal agent.</p></div>
-      <div class="agent-messages" id="agentMessages"><div class="agent-message system">VybPort never runs a replacement cloud copilot here. Pair a local agent session you control; it receives only the project, capsule, or question you explicitly pin.</div></div>
-      <form class="agent-composer" id="agentForm"><textarea id="agentInput" rows="3" placeholder="Ask your agent to inspect a build…"></textarea><div><span><button type="button" class="text-button" id="startAgent">Start a local agent chat</button><button type="button" class="text-button" id="pairAgent">Link a running session</button></span><button class="button solid" type="submit">Send ↗</button></div></form>
+      <div class="agent-picker"><select id="agentSelect" aria-label="Select remote MCP agent"><option value="">Checking your agent profiles…</option></select></div>
+      <div class="agent-context" id="agentContext"><span class="eyebrow">Current context</span><b>Nothing pinned yet</b><p>Open a build and queue a compact task packet for your own running coding-agent session.</p></div>
+      <div class="agent-messages" id="agentMessages"><div class="agent-message system">Your coding agent connects from its own machine with a scoped MCP key. VybPort queues only the project, capsule, or question you explicitly pin.</div></div>
+      <form class="agent-composer" id="agentForm"><textarea id="agentInput" rows="3" placeholder="Message your connected agent…"></textarea><div><span>MCP inbox · your agent pulls this remotely</span><button class="button solid" type="submit">Send ↗</button></div></form>
     </aside>
     <div id="toast" class="toast" role="status"></div>
     <script src="./rack.js"></script>

@@ -16,8 +16,7 @@ const projectContext = () => ({ schema:"vybport.context/1", view:"public-project
 function renderProjectAgentHistory(messages = []) {
   const node = document.querySelector("#projectAgentMessages");
   if (!messages.length) {
-    const selected = selectedProjectAgent();
-    node.innerHTML = `<div class="agent-message system">${escapeHtml(selected?.kind === "mcp" ? "This agent profile’s private MCP inbox is ready." : "This terminal conversation follows you between VybPort rooms.")}</div>`;
+    node.innerHTML = `<div class="agent-message system">This agent profile’s private MCP inbox is ready for your own running coding session.</div>`;
     return;
   }
   node.innerHTML = messages.map((message) => `<div class="agent-message ${message.role === "user" ? "user" : "system"}">${escapeHtml(message.body)}</div>`).join("");
@@ -27,7 +26,7 @@ async function loadProjectAgentHistory({ scroll = false } = {}) {
   const selected = selectedProjectAgent();
   if (!selected) { renderProjectAgentHistory(); return; }
   const request = ++projectAgentHistoryRequest;
-  const path = selected.kind === "mcp" ? `/api/agent-profiles/${selected.id}/messages` : `/api/agents/${selected.id}/history`;
+  const path = `/api/agent-profiles/${selected.id}/messages`;
   try {
     const data = await api(path);
     if (request !== projectAgentHistoryRequest || selected.key !== document.querySelector("#projectAgentSelect").value) return;
@@ -44,13 +43,12 @@ function updateProjectAgentIdentity() {
 
 async function loadProjectAgents() {
   try {
-    const [localResult, profileResult] = await Promise.all([api("/api/agents"), api("/api/agent-profiles")]);
-    const locals = (localResult.agents || []).map((item) => ({ key:agentState.key("local", item.id), kind:"local", id:item.id, label:item.label, detail:item.provider_label || item.provider }));
+    const profileResult = await api("/api/agent-profiles");
     const profiles = (profileResult.agent_profiles || []).filter((item) => item.credential_status === "active" && (item.scopes || []).includes("session"))
       .map((item) => ({ key:agentState.key("mcp", item.id), kind:"mcp", id:item.id, label:item.agent_name || item.label, detail:item.live ? "online via MCP" : "MCP inbox" }));
-    projectAgentConnections = [...profiles, ...locals];
-    const selected = agentState.choose(projectAgentConnections, "local"), select = document.querySelector("#projectAgentSelect");
-    select.innerHTML = `${profiles.length ? `<optgroup label="MCP agent profiles">${profiles.map((item) => `<option value="${item.key}">${escapeHtml(item.label)} · ${escapeHtml(item.detail)}</option>`).join("")}</optgroup>` : ""}${locals.length ? `<optgroup label="Linked terminal sessions">${locals.map((item) => `<option value="${item.key}">${escapeHtml(item.label)} · ${escapeHtml(item.detail)}</option>`).join("")}</optgroup>` : ""}` || `<option value="">No connected agent</option>`;
+    projectAgentConnections = profiles;
+    const selected = agentState.choose(projectAgentConnections, "mcp"), select = document.querySelector("#projectAgentSelect");
+    select.innerHTML = profiles.length ? `<optgroup label="Remote MCP agents">${profiles.map((item) => `<option value="${item.key}">${escapeHtml(item.label)} · ${escapeHtml(item.detail)}</option>`).join("")}</optgroup>` : `<option value="">Connect an MCP agent from your profile</option>`;
     select.value = selected?.key || "";
     if (selected) agentState.select(selected.key);
     updateProjectAgentIdentity();
@@ -78,15 +76,14 @@ document.querySelector("#projectAgentForm").addEventListener("submit", async (ev
   if (projectAgentSending) return;
   const selected = selectedProjectAgent(), input = document.querySelector("#projectAgentInput"), message = input.value.trim();
   if (!message) return;
-  if (!selected) { toast("Connect an agent from your profile first."); return; }
+  if (!selected) { toast("Connect an MCP agent from your profile first."); return; }
   projectAgentSending = true;
   document.querySelector("#projectAgentMessages").insertAdjacentHTML("beforeend", `<div class="agent-message user">${escapeHtml(message)}</div>`);
   try {
-    if (selected.kind === "mcp") await api(`/api/agent-profiles/${selected.id}/send`, { method:"POST", body:JSON.stringify({ kind:"review", body:message, context:projectContext() }) });
-    else await api(`/api/agents/${selected.id}/message`, { method:"POST", body:JSON.stringify({ mode:"chat", message, context:projectContext() }) });
+    await api(`/api/agent-profiles/${selected.id}/send`, { method:"POST", body:JSON.stringify({ kind:"review", body:message, context:projectContext() }) });
     input.value = "";
     await loadProjectAgentHistory({ scroll:true });
-    toast(selected.kind === "mcp" ? "Sent to the agent inbox." : "Your linked terminal agent replied.");
+    toast("Sent to your agent's MCP inbox.");
   } catch (error) { await loadProjectAgentHistory({ scroll:true }); toast(error.message); }
   finally { projectAgentSending = false; }
 });

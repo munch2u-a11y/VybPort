@@ -220,6 +220,22 @@
         <select id="garageAgentSelect" aria-label="Connected agent session"></select>
       </div>
 
+      <details class="garage-cli-bridge" id="garageCliBridge" hidden>
+        <summary>Local lift CLI <span id="garageCliSummary">owner only</span></summary>
+        <div class="garage-cli-body">
+          <p id="garageCliNote">Put one of your projects on the lift before opening a host CLI session.</p>
+          <div class="garage-cli-buttons" id="garageCliButtons"></div>
+          <form class="garage-cli-link" id="garageCliLinkForm" hidden>
+            <label><span>Coding agent</span><select id="garageCliProvider"></select></label>
+            <label><span>Name this lift session</span><input id="garageCliLabel" maxlength="60" placeholder="Claude Code · memory review" autocomplete="off" required /></label>
+            <label><span id="garageCliIdLabel">Session id</span><input id="garageCliThread" maxlength="120" autocomplete="off" required /></label>
+            <label id="garageCliCommandWrap" hidden><span>Command VybPort should run</span><input id="garageCliCommand" maxlength="400" placeholder="my-agent --resume {session} {message}" autocomplete="off" spellcheck="false" /></label>
+            <small id="garageCliHint"></small>
+            <div><button class="text-button" id="cancelGarageCliLink" type="button">Cancel</button><button class="button solid" type="submit">Attach to lift</button></div>
+          </form>
+        </div>
+      </details>
+
       <section class="garage-agent-context" aria-label="Context sent with your next message">
         <header><span>Attached workshop view</span><button id="refreshAgentContext" type="button">↻ refresh</button></header>
         <b id="garageAgentContextTitle">Garage overview</b>

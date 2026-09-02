@@ -1,6 +1,6 @@
 # VybPort prototype
 
-VybPort is a local-first social review workspace for vibecoders and their agents. This prototype includes local accounts, focused garage/project review rooms, a module locker, line-anchored review notes, a Wander street of public garages, a ticketed benchmark arena, a Git-backed staging panel, and a bridge to whichever coding-agent CLI you already run.
+VybPort is a local-first social review workspace for vibecoders and their agents. This prototype includes local accounts, focused garage/project review rooms, a module locker, line-anchored review notes, a Wander street of public garages, a ticketed benchmark arena, a Git-backed staging panel, scoped MCP companions, and an owner-only lift bridge to a host coding-agent CLI.
 
 No dependencies — Python 3.11+ standard library only, SQLite for storage, no build step, no npm.
 
@@ -18,7 +18,7 @@ Useful environment variables:
 | variable | what it does |
 | --- | --- |
 | `VYBPORT_HOST` / `VYBPORT_PORT` | where to bind (defaults `127.0.0.1:4173`) |
-| `VYBPORT_OWNERS` | comma-separated handles allowed to publish arena benchmarks (default: the first account) |
+| `VYBPORT_OWNERS` | comma-separated handles allowed to use host CLIs and publish arena benchmarks; overrides `data/owners` (default: the first account) |
 | `VYBPORT_WORKSPACE_ROOTS` | colon-separated roots under which folders may be paired (default `$HOME`) |
 | `VYBPORT_PUBLIC` | `1` turns off everything that runs a command on the host — see "Letting other people try it" |
 | `VYBPORT_INVITE` | require this code to register |
@@ -151,13 +151,15 @@ Spending an arena ticket is deliberately **not** an agent tool. An agent can pre
 
 ## Own-agent chat (the other direction)
 
-After creating a local VybPort account, open **Your agent** and either start a session in a detected CLI or link one you already have running. `GET /api/agents/providers` reports which agents this machine actually has on `PATH`.
+The site-wide companion is an MCP agent profile. Each person creates a scoped credential and puts it in the coding-agent session running on their own machine. VybPort queues explicit context through `session.inbox`; the agent replies through `session.reply`. Provider authentication therefore stays with that person and is never shared by the VybPort host.
+
+There is also a deliberately narrow host-CLI bridge for the instance owner. It appears only inside the owner's Garage while one of their projects is on the lift. The server verifies both conditions on every link, start, resume, and message request. `GET /api/agents/providers` is owner-only and reports which CLIs the host machine actually has on `PATH`.
 
 - **Codex CLI** — `codex exec` to open a thread, `codex exec resume` to continue, `codex queue` to hand over a message without waiting.
 - **Claude Code** — `claude -p --output-format json`, resumed by session id.
 - **Any other coding agent** — you supply the command your CLI takes. `{session}`, `{message}` and `{output}` are substituted as whole argv items; nothing is passed through a shell.
 
-VybPort sends the linked session only your message and the context card shown in the chat drawer. In a garage that card can include private owner-side project identifiers and a short excerpt of the lines you selected; it does not attach an entire file or paired workspace automatically.
+VybPort sends a host CLI only the owner's message and the Garage context card shown in the chat drawer. That card can include private owner-side project identifiers and a short excerpt of selected lines; it does not attach an entire file or paired workspace automatically. Because these commands inherit the host operating-system account's Claude/Codex credentials, this path must never be treated as a multi-tenant feature.
 
 ## Project rack
 
@@ -182,10 +184,10 @@ Entries are measured through a single contract, `vybport.arena/1`: VybPort hands
 - The board ranks each builder's best scored attempt, top 100. Ties go to whoever reached the score first.
 - Closing a period awards its top three a ribbon and keeps them on the podium for the whole of the next period.
 
-Set the owners who may publish and close benchmarks:
+Set the owners who may use the host CLI bridge and publish or close benchmarks:
 
 ```bash
 VYBPORT_OWNERS=yourhandle,cohandle python3 server.py
 ```
 
-With nothing set, the first account created on a local instance owns the arena. A public-mode instance has no implicit owner; set `VYBPORT_OWNERS` explicitly.
+For a durable local setting, put one owner handle per line in the gitignored `data/owners` file. `VYBPORT_OWNERS` overrides that file. With neither configured, the first account created on a local instance is the fallback owner. A public-mode instance has no implicit owner; configure owners explicitly.

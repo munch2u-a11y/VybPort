@@ -6,7 +6,7 @@ async function api(path,options={}){const response=await fetch(path,{headers:{'C
 const agentState=window.VybAgentState;
 
 let hood=null,garage=null,mine=[],project=null,activeModule=null,comparison=null,workspaces=[],gitState=null,currentView='modules';
-let linkedAgents=[],agentProfiles=[],activeAgentConnection='',agentHistory=[],agentHistoryPrimed=false,agentSending=false,agentUnread=0;
+let linkedAgents=[],agentProfiles=[],localAgentProviders=[],localAgentBridge=false,activeAgentConnection='',agentHistory=[],agentHistoryPrimed=false,agentSending=false,agentUnread=0;
 const fileLists=new Map();
 const review={docs:{mine:null,compare:null},active:'mine',anchor:{mine:null,compare:null},range:{mine:null,compare:null},notes:new Map()};
 
@@ -21,7 +21,7 @@ function agentChoices(){
  const profiles=agentProfiles.filter(item=>item.credential_status==='active'&&(item.scopes||[]).includes('session')).sort((a,b)=>Number(b.live)-Number(a.live));
  return [
   ...profiles.map(item=>({key:`mcp:${item.id}`,kind:'mcp',id:item.id,label:item.agent_name||item.label,name:item.label,live:Boolean(item.live),profile:item})),
-  ...linkedAgents.map(item=>({key:`local:${item.id}`,kind:'local',id:item.id,label:item.label,name:item.label,live:null,profile:item})),
+  ...(localAgentBridge&&project?linkedAgents:[]).map(item=>({key:`local:${item.id}`,kind:'local',id:item.id,label:item.label,name:item.label,live:null,profile:item})),
  ]
 }
 
@@ -34,22 +34,24 @@ function setAgentUnread(value){
 function renderAgentConnections(){
  const choices=agentChoices(),profiles=choices.filter(item=>item.kind==='mcp'),locals=choices.filter(item=>item.kind==='local'),select=$('#garageAgentSelect');
  if(!choices.some(item=>item.key===activeAgentConnection)){
-  activeAgentConnection=agentState.choose(choices,'local')?.key||''
+  const prefer=localAgentBridge&&project&&agentState.selectedLocal()?'local':'mcp';
+  activeAgentConnection=agentState.choose(choices,prefer)?.key||''
  }
  if(activeAgentConnection)agentState.select(activeAgentConnection);
- select.innerHTML=`${profiles.length?`<optgroup label="MCP agent profiles">${profiles.map(item=>`<option value="${item.key}">${safe(item.label)}${item.live?' · online':' · inbox'}</option>`).join('')}</optgroup>`:''}${locals.length?`<optgroup label="Linked terminal sessions">${locals.map(item=>`<option value="${item.key}">${safe(item.label)} · linked</option>`).join('')}</optgroup>`:''}`;
+ select.innerHTML=`${profiles.length?`<optgroup label="Remote MCP agents">${profiles.map(item=>`<option value="${item.key}">${safe(item.label)}${item.live?' · online':' · inbox'}</option>`).join('')}</optgroup>`:''}${locals.length?`<optgroup label="Owner lift CLI">${locals.map(item=>`<option value="${item.key}">${safe(item.label)} · local</option>`).join('')}</optgroup>`:''}`||'<option value="">No agent connected</option>';
  select.value=activeAgentConnection;
- $('#garageAgentBubble').hidden=!choices.length||!garage;
- if(!choices.length&&!$('#garageAgentDock').hidden)closeGarageAgent();
+ select.disabled=!choices.length;
+ $('#garageAgentBubble').hidden=!garage||(!choices.length&&!(localAgentBridge&&project));
+ if(!choices.length&&!(localAgentBridge&&project)&&!$('#garageAgentDock').hidden)closeGarageAgent();
  refreshAgentIdentity();refreshAgentContextCard()
 }
 
 function refreshAgentIdentity(){
  const selected=selectedAgentConnection(),bubble=$('#garageAgentBubble'),dots=[$('#garageAgentPresence'),$('#garageAgentDockPresence')];
- if(!selected){$('#garageAgentName').textContent='No connected agent';$('#garageAgentState').textContent='Connect one from your profile';dots.forEach(dot=>dot.className='');return}
+ if(!selected){$('#garageAgentName').textContent='No connected agent';$('#garageAgentState').textContent=localAgentBridge&&project?'Open an owner lift CLI or connect MCP':'Connect an MCP agent from your profile';dots.forEach(dot=>dot.className='');return}
  $('#garageAgentName').textContent=selected.label;
- const state=selected.kind==='local'?'linked terminal · replies inline':selected.live?'online via MCP · inbox replies':'MCP inbox ready · agent has not checked in';
- $('#garageAgentState').textContent=state;const tone=selected.live===true?'live':'waiting';dots.forEach(dot=>dot.className=tone);
+ const state=selected.kind==='local'?'owner lift CLI · replies inline':selected.live?'online via MCP · inbox replies':'remote MCP inbox · waiting for check-in';
+ $('#garageAgentState').textContent=state;const tone=selected.kind==='local'||selected.live===true?'live':'waiting';dots.forEach(dot=>dot.className=tone);
  bubble.title=`Open chat with ${selected.label}`
 }
 
@@ -90,7 +92,63 @@ function refreshAgentContextCard(){
  let detail=context.locker_compare?`Comparing with ${context.locker_compare.module_name} from ${context.locker_compare.origin}.`:context.module?`${slotInfo(context.module.slot).label} module is open.`:context.view==='workflow'?'Project workflow is open.':'Project-level workshop view.';
  let range='';if(context.review)range=`${context.review.file} · L${context.review.line_start}${context.review.line_end===context.review.line_start?'':`–${context.review.line_end}`}`;
  $('#garageAgentContextTitle').textContent=title;$('#garageAgentContextDetail').textContent=detail;$('#garageAgentContextRange').textContent=range;
- document.querySelector('[data-agent-prompt="compare"]').disabled=!context.locker_compare
+ document.querySelector('[data-agent-prompt="compare"]').disabled=!context.locker_compare;renderLocalAgentBridge()
+}
+
+function selectedLocalProvider(){return localAgentProviders.find(item=>item.key===$('#garageCliProvider').value)||null}
+
+function syncGarageCliLinkForm(){
+ const provider=selectedLocalProvider();if(!provider)return;
+ $('#garageCliIdLabel').textContent=provider.id_label;$('#garageCliCommandWrap').hidden=!provider.needs_command;
+ $('#garageCliThread').placeholder=`Paste the exact ${provider.id_label} from your terminal`;
+ $('#garageCliHint').textContent=provider.hint
+}
+
+function renderLocalAgentBridge(){
+ const shell=$('#garageCliBridge');if(!shell)return;
+ shell.hidden=!localAgentBridge;if(!localAgentBridge)return;
+ const ready=Boolean(garage&&project),startable=localAgentProviders.filter(item=>item.starts&&item.detected);
+ $('#garageCliSummary').textContent=ready?'owner only · lift ready':'owner only · lift empty';
+ $('#garageCliNote').textContent=ready
+  ?`Runs only on this host as its owner. Every turn is attached to ${project.name} and the module, file, or line range you open.`
+  :'Put one of your projects on the lift before opening or attaching a host CLI session.';
+ const startButtons=startable.map(item=>`<button type="button" data-cli-start="${safe(item.key)}"${ready?'':' disabled'}>Open ${safe(item.label)} on lift</button>`).join('');
+ const linkable=localAgentProviders.some(item=>item.needs_command||item.detected);
+ $('#garageCliButtons').innerHTML=`${startButtons}${linkable?`<button class="link" type="button" data-cli-link${ready?'':' disabled'}>Attach running session…</button>`:''}`||'<small>No supported host CLI is available on this machine.</small>';
+ if(!ready)$('#garageCliLinkForm').hidden=true
+}
+
+function openGarageCliLink(){
+ if(!project){toast('Put a project on the lift first.');return}
+ const choices=localAgentProviders.filter(item=>item.needs_command||item.detected);
+ if(!choices.length){toast('No host CLI is available to attach.');return}
+ $('#garageCliProvider').innerHTML=choices.map(item=>`<option value="${safe(item.key)}">${safe(item.label)}</option>`).join('');
+ syncGarageCliLinkForm();$('#garageCliBridge').open=true;$('#garageCliLinkForm').hidden=false;$('#garageCliLabel').focus()
+}
+
+async function startGarageCli(providerKey){
+ if(!localAgentBridge||!project){toast('The owner CLI opens only with a project on the lift.');return}
+ const provider=localAgentProviders.find(item=>item.key===providerKey);if(!provider)return;
+ const input=$('#garageAgentInput'),written=input.value.trim();
+ const message=written||`Join me at the ${project.name} lift. Start by inspecting the attached project context and tell me what you would open first.`;
+ $('#garageCliNote').textContent=`Opening ${provider.label} against ${project.name}…`;
+ $('#garageCliButtons').querySelectorAll('button').forEach(button=>button.disabled=true);
+ try{
+  const result=await api('/api/agents/start',{method:'POST',body:JSON.stringify({provider:provider.key,message,context:fitAgentContext(currentAgentContext())})});
+  activeAgentConnection=agentState.select(agentState.key('local',result.agent.id));if(written)input.value='';
+  await loadGarageAgents();await openGarageAgent();toast(`${result.agent.label} is attached to the lift.`)
+ }catch(error){toast(error.message)}finally{renderLocalAgentBridge()}
+}
+
+async function linkGarageCli(event){
+ event.preventDefault();if(!localAgentBridge||!project){toast('Put a project on the lift first.');return}
+ const provider=$('#garageCliProvider').value,label=$('#garageCliLabel').value.trim(),thread_id=$('#garageCliThread').value.trim(),command=$('#garageCliCommand').value.trim();
+ try{
+  const result=await api('/api/agents',{method:'POST',body:JSON.stringify({provider,label,thread_id,command,context:fitAgentContext(currentAgentContext())})});
+  activeAgentConnection=agentState.select(agentState.key('local',result.agent.id));
+  $('#garageCliLinkForm').hidden=true;$('#garageCliLabel').value='';$('#garageCliThread').value='';$('#garageCliCommand').value='';
+  await loadGarageAgents();await openGarageAgent();toast(`${result.agent.label} is attached to the lift.`)
+ }catch(error){toast(error.message)}
 }
 
 const agentTime=value=>value?new Date(value*1000).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'';
@@ -122,15 +180,20 @@ async function loadGarageAgentHistory({quiet=false,notify=true,scroll=false}={})
 }
 
 async function loadGarageAgents(){
- const remembered=agentState.selected();
- const [localResult,profileResult]=await Promise.all([api('/api/agents').catch(()=>({agents:[]})),api('/api/agent-profiles').catch(()=>({agent_profiles:[]}))]);
- linkedAgents=localResult.agents||[];agentProfiles=profileResult.agent_profiles||[];renderAgentConnections();
+ const remembered=agentState.selectedLocal()||agentState.selected();
+ const [me,profileResult]=await Promise.all([api('/api/auth/me').catch(()=>({user:null})),api('/api/agent-profiles').catch(()=>({agent_profiles:[]}))]);
+ localAgentBridge=Boolean(me.user?.local_agent_bridge);agentProfiles=profileResult.agent_profiles||[];
+ if(localAgentBridge){
+  const [localResult,providerResult]=await Promise.all([api('/api/agents').catch(()=>({agents:[]})),api('/api/agents/providers').catch(()=>({providers:[]}))]);
+  linkedAgents=localResult.agents||[];localAgentProviders=providerResult.providers||[]
+ }else{linkedAgents=[];localAgentProviders=[]}
+ renderAgentConnections();
  if(activeAgentConnection)await loadGarageAgentHistory({quiet:true,notify:false});
  if(!remembered&&selectedAgentConnection()?.kind==='local'&&agentHistory.length)agentState.setOpen(true)
 }
 
 async function openGarageAgent(){
- if(!selectedAgentConnection()){location.href='./index.html?agent=open';return}
+ if(!selectedAgentConnection()&&!(localAgentBridge&&project)){location.href='./index.html?agent=open';return}
  agentState.setOpen(true);
  $('#garageAgentDock').hidden=false;document.body.classList.add('agent-chat-open');$('#garageAgentBubble').setAttribute('aria-expanded','true');setAgentUnread(0);refreshAgentIdentity();refreshAgentContextCard();await loadGarageAgentHistory({quiet:true,notify:false,scroll:true});$('#garageAgentInput').focus()
 }
@@ -207,7 +270,7 @@ function renderStudio(){
    <i class="project-light"></i><span><b>${safe(item.name)}</b><small>${safe(item.tagline||`${item.modules.length} mounted modules`)}</small></span>
    <em>${item.flagship?'display':item.modules.length}</em></button>`).join('')||'<p class="empty-copy">Stage your first project.</p>';
  $('#garageJump').innerHTML=mine.map(item=>`<a href="${VybHood.link('garage.html',item.neighborhood)}"${item.id===garage.id?' class="here"':''} style="--hood:${item.hue}"><b>${safe(item.name)}</b><span>${safe(item.neighborhood_name)}</span></a>`).join('');
- renderProject();renderLocker();renderWorkspaces();renderBayEditor();renderFlowEditor();refreshAgentContextCard();syncUrl()
+ renderProject();renderLocker();renderWorkspaces();renderBayEditor();renderFlowEditor();if(localAgentBridge)renderAgentConnections();else refreshAgentContextCard();syncUrl()
 }
 
 function renderProject(){
@@ -459,6 +522,10 @@ $('#garageAgentBubble').onclick=openGarageAgent;
 $('#garageAgentTopToggle').onclick=openGarageAgent;
 $('#closeGarageAgent').onclick=closeGarageAgent;
 $('#garageAgentSelect').onchange=async event=>{activeAgentConnection=agentState.select(event.target.value);agentHistory=[];agentHistoryPrimed=false;setAgentUnread(0);refreshAgentIdentity();renderAgentHistory();await loadGarageAgentHistory({quiet:false,notify:false,scroll:true})};
+$('#garageCliButtons').onclick=event=>{const start=event.target.closest('[data-cli-start]'),link=event.target.closest('[data-cli-link]');if(start&&!start.disabled)startGarageCli(start.dataset.cliStart);else if(link&&!link.disabled)openGarageCliLink()};
+$('#garageCliProvider').onchange=syncGarageCliLinkForm;
+$('#cancelGarageCliLink').onclick=()=>{$('#garageCliLinkForm').hidden=true};
+$('#garageCliLinkForm').onsubmit=linkGarageCli;
 $('#refreshAgentContext').onclick=()=>{refreshAgentContextCard();toast('The current workshop view will travel with your next message.')};
 document.querySelector('.garage-agent-prompts').onclick=event=>{const button=event.target.closest('[data-agent-prompt]');if(!button||button.disabled)return;$('#garageAgentInput').value=promptStarter(button.dataset.agentPrompt);$('#garageAgentInput').focus()};
 $('#garageAgentForm').onsubmit=sendGarageAgent;

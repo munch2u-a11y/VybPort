@@ -40,6 +40,11 @@
 
     <main class="wander-page">
         <h1 class="street-title">Wander the street of open garages</h1>
+      <nav class="street-tabs" id="streetTabs" aria-label="Which doors to walk">
+        <button data-tab="all" class="active">All doors</button>
+        <button data-tab="favorites">★ Favorites</button>
+        <button data-tab="friends">◈ Friends</button>
+      </nav>
       <section class="street-hud">
         <div class="hood-switcher" id="hoodSwitcher"></div>
         <label class="wander-search">⌕ <input id="wanderSearch" placeholder="Find a garage anywhere on the street" autocomplete="off" /></label>
@@ -86,21 +91,11 @@
       <label class="agent-select-wrap"><span>Session</span>
         <select id="wanderAgentSelect"><option value="">No session selected</option></select>
       </label>
-      <div class="agent-providers" id="agentProviders">
-        <span class="eyebrow">Bring the agent you already use</span>
-        <div id="providerButtons"></div>
-        <p id="providerNote">Looking for coding agents on this machine…</p>
+      <div class="agent-providers agent-remote-connect">
+        <span class="eyebrow">Remote MCP companion</span>
+        <p>Your own coding session checks this private inbox with its scoped key. Host CLIs stay inside the owner's Garage lift.</p>
+        <div><a class="button ghost" href="./index.html?agent=open">Manage MCP connection →</a></div>
       </div>
-      <form class="agent-link" id="linkAgentForm" hidden>
-        <label><span>Coding agent</span><select id="linkProvider"></select></label>
-        <label><span>Name this session</span><input id="linkLabel" placeholder="Claude Code · Habitus" autocomplete="off" /></label>
-        <label><span id="linkIdLabel">Session id</span><input id="linkThread" placeholder="Paste the exact id from your terminal" autocomplete="off" /></label>
-        <label id="linkCommandWrap" hidden><span>Command VybPort should run</span>
-          <input id="linkCommand" placeholder="my-agent --resume {session} {message}" autocomplete="off" spellcheck="false" />
-        </label>
-        <p id="linkHint"></p>
-        <div><button type="button" class="text-button" id="cancelLink">Cancel</button><button class="button solid" type="submit">Link session</button></div>
-      </form>
       <div class="sidecar-context" id="agentContext">
         <span class="eyebrow">Pinned context</span><b>Nothing pinned yet</b>
         <p>Use “hand to agent” at any open door and the garage comes with you.</p>

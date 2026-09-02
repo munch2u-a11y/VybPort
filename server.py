@@ -39,8 +39,8 @@ SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{2,47}$")
 # The one contract every arena entry is measured through, so no run gets a bespoke harness.
 ARENA_ADAPTOR = "vybport.arena/1"
 PREFLIGHT_TIMEOUT, SCORED_TIMEOUT = 60, 240
-# Whoever runs this instance publishes the benchmarks. Set VYBPORT_OWNERS=handle,handle to be explicit;
-# with nothing set, the first account created on the machine owns the arena.
+# Whoever runs this instance owns host CLIs and publishes benchmarks. Set VYBPORT_OWNERS or the
+# gitignored data/owners file explicitly; with neither set, the first local account is the fallback.
 # Only these get served as files. Everything else — the database, the source, dotfiles, directory
 # listings — is not web-readable, whether or not the port is only on loopback.
 STATIC_SUFFIXES = {".html", ".css", ".js", ".jpg", ".jpeg", ".png", ".webp", ".svg", ".ico", ".woff2"}
@@ -160,6 +160,19 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS comments (
                 id INTEGER PRIMARY KEY, target TEXT NOT NULL, user_id INTEGER NOT NULL,
                 body TEXT NOT NULL, via TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS friendships (
+                requester_id INTEGER NOT NULL, addressee_id INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted')),
+                created_at INTEGER NOT NULL, responded_at INTEGER,
+                PRIMARY KEY(requester_id, addressee_id),
+                FOREIGN KEY(requester_id) REFERENCES users(id), FOREIGN KEY(addressee_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS favorites (
+                user_id INTEGER NOT NULL, target TEXT NOT NULL, label TEXT NOT NULL DEFAULT '',
+                handle TEXT NOT NULL DEFAULT '', neighborhood TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL,
+                PRIMARY KEY(user_id, target), FOREIGN KEY(user_id) REFERENCES users(id)
             );
             CREATE TABLE IF NOT EXISTS arena_runs (
                 slug TEXT PRIMARY KEY, title TEXT NOT NULL, system_name TEXT NOT NULL,
@@ -442,7 +455,10 @@ def password_matches(password: str, encoded: str) -> bool:
 
 
 def user_payload(row: sqlite3.Row) -> dict[str, object]:
-    return {"id": row["id"], "handle": row["handle"], "display_name": row["display_name"], "bio": row["bio"]}
+    return {
+        "id": row["id"], "handle": row["handle"], "display_name": row["display_name"], "bio": row["bio"],
+        "owner": is_owner(row), "local_agent_bridge": local_agent_bridge_allowed(row),
+    }
 
 
 def run_git(*args: str) -> str:
@@ -1037,11 +1053,25 @@ def rack_links(base: Path, groups: dict[str, dict[str, object]]) -> list[dict[st
 
 
 def is_owner(user: sqlite3.Row) -> bool:
-    if OWNER_HANDLES:
-        return user["handle"].lower() in OWNER_HANDLES
+    configured = set(OWNER_HANDLES)
+    if not configured:
+        try:
+            configured = {
+                handle for handle in re.split(r"[\s,]+", (DATA_DIR / "owners").read_text(encoding="utf-8").lower())
+                if HANDLE_RE.fullmatch(handle)
+            }
+        except OSError:
+            configured = set()
+    if configured:
+        return user["handle"].lower() in configured
     # The first-account convenience is local-only. On a public host it would make registration a
     # race for administrative benchmark powers.
     return not PUBLIC_MODE and user["id"] == 1
+
+
+def local_agent_bridge_allowed(user: sqlite3.Row) -> bool:
+    """Host CLIs inherit the server account's credentials, so they are never a tenant feature."""
+    return not PUBLIC_MODE and is_owner(user)
 
 
 def utc_day(when: float | None = None) -> str:
@@ -1634,6 +1664,35 @@ def clean_agent_context(value: object, limit: int = 8000) -> str:
     return serialized
 
 
+def require_local_lift_context(user: sqlite3.Row, context: str) -> None:
+    """A host CLI turn must be attached to a real project owned by the instance owner.
+
+    This is deliberately checked again on the server: hiding the launcher outside the Garage is
+    useful UX, but it is not an authorization boundary.
+    """
+    try:
+        payload = json.loads(context)
+    except (json.JSONDecodeError, TypeError):
+        payload = None
+    if not isinstance(payload, dict) or payload.get("view") not in {"project", "module", "workflow", "review"}:
+        raise ValueError("Open one of your Garage projects on the lift before using the local CLI bridge.")
+
+    garage_value, project_value = payload.get("garage"), payload.get("project")
+    garage_id = garage_value.get("id") if isinstance(garage_value, dict) else garage_value
+    project_id = project_value.get("id") if isinstance(project_value, dict) else project_value
+    if (not isinstance(garage_id, int) or isinstance(garage_id, bool)
+            or not isinstance(project_id, int) or isinstance(project_id, bool)):
+        raise ValueError("The local CLI bridge needs the exact Garage project currently on the lift.")
+    with db() as connection:
+        owned = connection.execute(
+            """SELECT 1 FROM projects JOIN garages ON garages.id=projects.garage_id
+               WHERE projects.id=? AND garages.id=? AND garages.user_id=?""",
+            (project_id, garage_id, user["id"]),
+        ).fetchone()
+    if not owned:
+        raise PermissionError("That project is not on a Garage lift owned by this account.")
+
+
 def agent_context_prompt(message: str, context: str) -> str:
     if not context:
         return message
@@ -2108,6 +2167,48 @@ class VybPortHandler(SimpleHTTPRequestHandler):
         if not user:
             raise PermissionError("Create a local account or log in first.")
         return user
+
+    def require_local_agent_owner(self) -> sqlite3.Row:
+        user = self.require_user()
+        if not local_agent_bridge_allowed(user):
+            raise PermissionError(
+                "The local CLI bridge belongs to this VybPort instance's owner. "
+                "Connect your own running agent through a scoped MCP profile instead."
+            )
+        return user
+
+    def named_user(self, connection: sqlite3.Connection, value: object) -> sqlite3.Row:
+        """A person addressed by handle, with or without the @ the street writes them with."""
+        handle = value.strip().lstrip("@").lower() if isinstance(value, str) else ""
+        if not handle:
+            raise ValueError("Name whose garage you mean.")
+        row = connection.execute("SELECT * FROM users WHERE handle=?", (handle,)).fetchone()
+        if not row:
+            raise ValueError(f"No one on this instance answers to @{handle}.")
+        return row
+
+    def friend_rows(self, connection: sqlite3.Connection, user: sqlite3.Row) -> dict[str, object]:
+        """Accepted friendships read in both directions; requests stay separated by who asked."""
+        rows = connection.execute(
+            """SELECT friendships.*, users.handle, users.display_name FROM friendships
+               JOIN users ON users.id = CASE WHEN friendships.requester_id=? THEN friendships.addressee_id
+                                             ELSE friendships.requester_id END
+               WHERE friendships.requester_id=? OR friendships.addressee_id=?
+               ORDER BY friendships.created_at DESC""",
+            (user["id"], user["id"], user["id"])).fetchall()
+        person = lambda row, when: {"handle": row["handle"], "display_name": row["display_name"], "since": when}
+        return {
+            "friends": [person(row, row["responded_at"]) for row in rows if row["status"] == "accepted"],
+            "incoming": [person(row, row["created_at"]) for row in rows
+                         if row["status"] == "pending" and row["addressee_id"] == user["id"]],
+            "outgoing": [person(row, row["created_at"]) for row in rows
+                         if row["status"] == "pending" and row["requester_id"] == user["id"]],
+        }
+
+    def favorite_rows(self, connection: sqlite3.Connection, user: sqlite3.Row) -> list[dict[str, object]]:
+        return [dict(row) for row in connection.execute(
+            "SELECT target,label,handle,neighborhood,created_at FROM favorites WHERE user_id=? ORDER BY created_at DESC",
+            (user["id"],)).fetchall()]
 
     def target(self, value: object) -> str:
         if not isinstance(value, str) or not TARGET_RE.fullmatch(value):
@@ -3050,16 +3151,20 @@ class VybPortHandler(SimpleHTTPRequestHandler):
             self.json_response(HTTPStatus.OK, {"day": requested_day, "badges": [dict(row) for row in rows]})
             return
         if parsed.path == "/api/agents/providers":
-            self.json_response(HTTPStatus.OK, {"providers": [
-                {"key": key, "label": spec["label"], "hint": spec["hint"], "id_label": spec["id_label"],
-                 "binary": spec["binary"], "detected": installed(spec), "starts": spec["start"] is not None,
-                 "queues": spec["queue"] is not None, "needs_command": key == "custom"}
-                for key, spec in PROVIDERS.items()]})
+            try:
+                self.require_local_agent_owner()
+                self.json_response(HTTPStatus.OK, {"providers": [
+                    {"key": key, "label": spec["label"], "hint": spec["hint"], "id_label": spec["id_label"],
+                     "binary": spec["binary"], "detected": installed(spec), "starts": spec["start"] is not None,
+                     "queues": spec["queue"] is not None, "needs_command": key == "custom"}
+                    for key, spec in PROVIDERS.items()]})
+            except PermissionError as error:
+                self.json_response(HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
         linked_history = re.fullmatch(r"/api/agents/(\d+)/history", parsed.path)
         if linked_history:
             try:
-                user = self.require_user()
+                user = self.require_local_agent_owner()
                 agent_id = int(linked_history.group(1))
                 with db() as connection:
                     agent = connection.execute(
@@ -3084,12 +3189,28 @@ class VybPortHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/agents":
             try:
-                user = self.require_user()
+                user = self.require_local_agent_owner()
                 with db() as connection:
                     rows = connection.execute("SELECT id,provider,label,thread_id,command,created_at FROM agents WHERE user_id=? ORDER BY id DESC", (user["id"],)).fetchall()
                 self.json_response(HTTPStatus.OK, {"agents": [dict(row) | {"provider_label": str(PROVIDERS.get(row["provider"], {}).get("label", row["provider"]))} for row in rows]})
             except PermissionError as error:
                 self.json_response(HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            return
+        if parsed.path == "/api/friends":
+            user = self.session_user()
+            if not user:
+                self.json_response(HTTPStatus.OK, {"friends": [], "incoming": [], "outgoing": []})
+                return
+            with db() as connection:
+                self.json_response(HTTPStatus.OK, self.friend_rows(connection, user))
+            return
+        if parsed.path == "/api/favorites":
+            user = self.session_user()
+            if not user:
+                self.json_response(HTTPStatus.OK, {"favorites": []})
+                return
+            with db() as connection:
+                self.json_response(HTTPStatus.OK, {"favorites": self.favorite_rows(connection, user)})
             return
         if parsed.path == "/api/social":
             try:
@@ -3185,10 +3306,12 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                 self.json_response(HTTPStatus.CREATED if route == "/api/git/commit" else HTTPStatus.OK, response)
                 return
             if route == "/api/agents":
-                user = self.require_user()
+                user = self.require_local_agent_owner()
                 provider, spec = provider_spec(payload.get("provider"))
                 label, thread_id = str(payload.get("label", "")).strip(), str(payload.get("thread_id", "")).strip()
                 command = str(payload.get("command", "")).strip() if provider == "custom" else ""
+                context = clean_agent_context(payload.get("context"))
+                require_local_lift_context(user, context)
                 if not 1 <= len(label) <= 60 or not 1 <= len(thread_id) <= 120:
                     raise ValueError(f"Name the session and paste its exact {spec['id_label']}.")
                 if PUBLIC_MODE:
@@ -3206,12 +3329,13 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                 self.json_response(HTTPStatus.CREATED, {"agent": dict(agent)})
                 return
             if route == "/api/agents/start":
-                user = self.require_user()
+                user = self.require_local_agent_owner()
                 provider, spec = provider_spec(payload.get("provider") or default_provider())
                 initial_message = payload.get("message")
                 if not isinstance(initial_message, str) or not 1 <= len(initial_message.strip()) <= 6000:
                     raise ValueError("Start the local agent chat with a message between 1 and 6000 characters.")
                 context = clean_agent_context(payload.get("context"))
+                require_local_lift_context(user, context)
                 if not spec["start"]:
                     raise ValueError(f"VybPort cannot open a {spec['label']} session for you — link one you already have running.")
                 if not installed(spec):
@@ -3235,12 +3359,13 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                 self.json_response(HTTPStatus.CREATED, {"agent": dict(agent), "reply": reply or f"{spec['label']} started the session without a final text response."})
                 return
             if route.startswith("/api/agents/") and route.endswith("/message"):
-                user = self.require_user()
+                user = self.require_local_agent_owner()
                 agent_id = int(route.split("/")[3])
                 message = payload.get("message")
                 if not isinstance(message, str) or not 1 <= len(message.strip()) <= 6000:
                     raise ValueError("Agent messages must be between 1 and 6000 characters.")
                 context = clean_agent_context(payload.get("context"))
+                require_local_lift_context(user, context)
                 mode = payload.get("mode", "chat")
                 if mode not in {"chat", "queue"}:
                     raise ValueError("Unsupported local agent delivery mode.")
@@ -3910,6 +4035,73 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                         raise ValueError(f"No benchmark is open on {hood['name']}.")
                     podium = self.close_benchmark(connection, open_row)
                 self.json_response(HTTPStatus.OK, {"closed": open_row["slug"], "podium": podium})
+                return
+            if route == "/api/friends":
+                user = self.require_user()
+                with db() as connection:
+                    other = self.named_user(connection, payload.get("handle"))
+                    if other["id"] == user["id"]:
+                        raise ValueError("You are already your own neighbour.")
+                    now = int(time.time())
+                    # If they already asked you, asking back is the same as saying yes.
+                    reverse = connection.execute(
+                        "SELECT * FROM friendships WHERE requester_id=? AND addressee_id=?",
+                        (other["id"], user["id"])).fetchone()
+                    if reverse:
+                        connection.execute(
+                            "UPDATE friendships SET status='accepted', responded_at=? WHERE requester_id=? AND addressee_id=?",
+                            (now, other["id"], user["id"]))
+                    else:
+                        connection.execute(
+                            "INSERT OR IGNORE INTO friendships(requester_id,addressee_id,status,created_at) VALUES(?,?,'pending',?)",
+                            (user["id"], other["id"], now))
+                    result = self.friend_rows(connection, user)
+                self.json_response(HTTPStatus.OK, result)
+                return
+            if route == "/api/friends/respond":
+                user = self.require_user()
+                with db() as connection:
+                    other = self.named_user(connection, payload.get("handle"))
+                    pending = connection.execute(
+                        "SELECT * FROM friendships WHERE requester_id=? AND addressee_id=? AND status='pending'",
+                        (other["id"], user["id"])).fetchone()
+                    if not pending:
+                        raise ValueError(f"@{other['handle']} has not asked to be your friend.")
+                    if payload.get("accept"):
+                        connection.execute(
+                            "UPDATE friendships SET status='accepted', responded_at=? WHERE requester_id=? AND addressee_id=?",
+                            (int(time.time()), other["id"], user["id"]))
+                    else:
+                        connection.execute("DELETE FROM friendships WHERE requester_id=? AND addressee_id=?",
+                                           (other["id"], user["id"]))
+                    result = self.friend_rows(connection, user)
+                self.json_response(HTTPStatus.OK, result)
+                return
+            if route == "/api/friends/remove":
+                user = self.require_user()
+                with db() as connection:
+                    other = self.named_user(connection, payload.get("handle"))
+                    connection.execute(
+                        "DELETE FROM friendships WHERE (requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)",
+                        (user["id"], other["id"], other["id"], user["id"]))
+                    result = self.friend_rows(connection, user)
+                self.json_response(HTTPStatus.OK, result)
+                return
+            if route == "/api/favorites":
+                user, target = self.require_user(), self.target(payload.get("target"))
+                text = lambda key: payload.get(key) if isinstance(payload.get(key), str) else ""
+                with db() as connection:
+                    existing = connection.execute("SELECT 1 FROM favorites WHERE user_id=? AND target=?",
+                                                  (user["id"], target)).fetchone()
+                    if existing:
+                        connection.execute("DELETE FROM favorites WHERE user_id=? AND target=?", (user["id"], target))
+                    else:
+                        connection.execute(
+                            "INSERT INTO favorites(user_id,target,label,handle,neighborhood,created_at) VALUES(?,?,?,?,?,?)",
+                            (user["id"], target, text("label")[:120], text("handle").lstrip("@")[:64],
+                             text("neighborhood")[:64], int(time.time())))
+                    result = {"favorited": not existing, "favorites": self.favorite_rows(connection, user)}
+                self.json_response(HTTPStatus.OK, result)
                 return
             if route == "/api/social/like":
                 user, target = self.require_user(), self.target(payload.get("target"))

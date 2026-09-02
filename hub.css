@@ -53,3 +53,18 @@
 .mcp-acts{display:flex;max-width:112px;flex-wrap:wrap;justify-content:flex-end;gap:6px 8px;align-items:center}
 .mcp-acts button[data-send]{color:#246348}
 .mcp-acts button[data-rotate],.mcp-acts button[data-visibility]{color:#446d58}
+
+/* Friends on the profile hub. */
+.friends-panel{margin:26px 0;padding:20px;border:1px solid rgba(130,162,184,.2);border-radius:12px;background:linear-gradient(180deg,rgba(11,17,23,.7),rgba(7,11,16,.8))}
+.friends-panel header{display:flex;align-items:start;justify-content:space-between;gap:12px}
+.friends-panel h2{margin:4px 0 0;font:600 20px Outfit,sans-serif}
+.friends-count{padding:3px 10px;border:1px solid rgba(122,166,255,.34);border-radius:99px;color:#bcd4ea;font:11px "DM Mono"}
+.friends-copy{max-width:62ch;margin:8px 0 14px;color:#8ba0b1;font-size:12px;line-height:1.5}
+.friend-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(130,162,184,.12)}
+.friend-row:last-child{border-bottom:0}
+.friend-row>div:nth-child(2){display:grid;gap:1px;margin-right:auto}
+.friend-row b{font:600 13px Outfit,sans-serif}
+.friend-row span{color:#7f95a7;font:10px "DM Mono"}
+.friend-actions{display:flex;align-items:center;gap:8px}
+.friend-actions .button.solid{padding:5px 12px;font-size:12px}
+.friend-pending{color:#c2a967;font:10px "DM Mono"}
