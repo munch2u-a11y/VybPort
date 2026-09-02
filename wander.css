@@ -1,11 +1,11 @@
-@property --near{syntax:"<number>";inherits:false;initial-value:1}
-@property --pass{syntax:"<number>";inherits:false;initial-value:0}
+@property --slot{syntax:"<number>";inherits:true;initial-value:0}
+@property --away{syntax:"<number>";inherits:true;initial-value:1}
 html{overflow-x:clip}
 .wander-body{overflow-x:clip;background:#04060a;color:#dfe8ef}
 
 /* Wander = one long row of workshops. Dark page chrome lives in night.css. */
 .street-title{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-.wander-page{position:relative;max-width:1500px;margin:0 auto;padding:20px clamp(14px,3vw,34px) 44vh}
+.wander-page{position:relative;display:flex;flex-direction:column;min-height:100vh;max-width:1500px;margin:0 auto;padding:20px clamp(14px,3vw,34px) 0}
 
 /* Kerbside controls. Sticky under the topbar so you never lose your bearings mid-walk. */
 .street-hud{position:sticky;z-index:14;top:68px;display:flex;flex-wrap:wrap;align-items:end;gap:14px 26px;margin-bottom:12px;padding:13px 16px;border:1px solid rgba(150,168,184,.2);border-radius:12px;background:linear-gradient(180deg,rgba(8,12,17,.92),rgba(5,8,12,.82));box-shadow:0 16px 34px rgba(0,0,0,.45),inset 0 1px rgba(190,220,255,.08);backdrop-filter:blur(11px)}
@@ -26,38 +26,27 @@ html{overflow-x:clip}
 .street-tray b{font:12px "DM Mono"}
 .street-position{position:relative;z-index:14;margin:0 0 4px;padding-left:2px;color:#8ba0b1;font:11px "DM Mono"}
 
-/* The row. Real perspective, with the vanishing point off to the left where the road runs out. */
-.street-layout{position:relative;z-index:10}
-.street-feed{position:relative;overflow-anchor:none;perspective:1200px;padding:9vh clamp(4px,1.2vw,22px) 0 clamp(0px,20vw,360px)}
+/* The row runs sideways: a snap track you walk along, one garage at a time. The track scrolls, the
+   page does not, so the door in the middle always sits in the same slot and the ones either side
+   fall back off it. overflow-y is hidden rather than visible because a lone overflow-x:auto would
+   compute the other axis to auto and hand the row a scrollbar it does not want; the padding-block
+   is what gives the parapet, the proximity chip and the light spill room to live outside the box. */
+.street-layout{position:relative;z-index:10;display:flex;flex:1;align-items:center;min-height:0}
+.street-feed{position:relative;width:100%;height:100%;display:flex;align-items:flex-end;overflow-x:auto;overflow-y:hidden;overflow-anchor:none;scroll-snap-type:x mandatory;padding:5vh calc(50% - 13vw) 3vh;scrollbar-width:none}
+.street-feed::-webkit-scrollbar{display:none}
 /* Nested doors would hide behind the near one, so the row steps sideways as it recedes, far enough
    for each lit name to clear the edge of the door in front of it. */
-.garage-unit{position:relative;z-index:1;width:min(680px,44vw);margin:0 0 clamp(-220px,-16vh,-70px) auto;transform:translateX(calc(var(--dn) * -18vw)) translateZ(var(--z,0)) rotateY(var(--ry,12deg));opacity:calc((1 - var(--dn) * var(--dn) * .85) * (1 - var(--pass) * .94));filter:blur(calc(var(--dn) * var(--dn) * 3.2px + var(--pass) * 2.6px)) saturate(calc(1 - var(--dn) * .45)) brightness(calc(1 - var(--dn) * .5)) contrast(calc(1 - var(--dn) * .1))}
-/* --near never actually reaches 0. wander.js measures the transformed box, so pushing a door back
-   also moves it toward the focus line, which raises its own --near again; the loop settles around
-   .93 / .70 / .53 / .41 for the first four doors. --d re-bases the depth onto that real range with a
-   small dead zone, so the door you are standing at is left exactly where it is, and --dn normalises
-   it to 0..1 for the fades. Both are plain custom properties, so unlike --near (registered with
-   inherits:false) they reach the parts inside the unit.
-
-   --lift is what makes this a street rather than a stack of cards. wander.js pins the perspective
-   origin to the focus line, which is also where the front door's centre sits, so receding doors
-   converge onto the front door instead of away from it — the horizon works out to roughly 700px
-   below the fold and the row simply marches off the bottom of the screen. Raising each door by an
-   amount that grows with distance moves that horizon back above the front door, so the row climbs
-   away to the upper left the way a real row of shopfronts does. The squared term is the curvature:
-   a straight-line lift overshoots the middle doors and bunches them onto one line. The 120px base
-   then drops the whole row down the frame, because a door centred on the focus line at 44% of the
-   viewport would otherwise wear its lit name up behind the kerbside controls. */
-.garage-unit{--d:max(0, 1 - var(--near) - .07);--dn:min(1, var(--d) * 1.61);--z:calc((var(--near) - 1) * 1500px + var(--pass) * 460px);--ry:calc(15deg + (1 - var(--near)) * 7deg - var(--pass) * 5deg);--lift:calc(120px - 1750px * var(--d) - 2230px * var(--d) * var(--d));--neon:hsl(var(--hue) 100% 63%);--neon-mid:hsl(var(--hue) 96% 58% / .5);--neon-soft:hsl(var(--hue) 96% 56% / .28)}
-/* The lift rides on the unit's children, and that placement is load-bearing: wander.js derives
-   --near from getBoundingClientRect(), which reports the transformed box, so lifting .garage-unit
-   itself would raise its own --near, which would shrink its lift — a feedback loop that settles
-   with the second door sitting almost on top of you. A child's transform does not touch its
-   parent's rect. It has to be a plain translate, too, so both children move together whatever
-   their own transform-origins would have done under a rotate or a scale. */
-.unit-body,.unit-post{transform:translateY(var(--lift,0px))}
-.unit-body{position:relative}
-.unit-fog{position:absolute;z-index:6;inset:-8% -4%;background:linear-gradient(180deg,rgba(30,36,44,.88),rgba(19,24,30,.72));opacity:calc(var(--dn) * var(--dn) * .55);pointer-events:none}
+/* --slot is the signed distance from the middle of the track in garages, --away its magnitude,
+   both written per frame by wander.js. The shrink alone would leave gaps between the doors, so the
+   row is also pulled back toward the middle as it recedes: the quadratic term is what keeps the
+   spacing closing the way it does down a real street instead of marching off at a constant step. */
+.garage-unit{position:relative;z-index:1;flex:0 0 auto;width:26vw;perspective:1100px;scroll-snap-align:center}
+.unit-body{position:relative;transform-origin:50% 100%;transform:translateX(calc(var(--slot) * -5vw + var(--slot) * var(--away) * -2vw)) rotateY(calc(var(--slot) * -7deg)) scale(calc(1 - var(--away) * .24 + var(--away) * var(--away) * .02));opacity:calc(1 - var(--away) * .26);filter:blur(calc(var(--away) * var(--away) * .7px)) saturate(calc(1 - var(--away) * .2)) brightness(calc(1 - var(--away) * .17));transition:opacity .18s linear}
+/* --slot and --away are registered above so they animate as numbers and inherit into the parts of
+   the unit that read them — the sign brightens itself back up against the distance grade, and the
+   fog leans on them too. */
+.garage-unit{--neon:hsl(var(--hue) 100% 63%);--neon-mid:hsl(var(--hue) 96% 58% / .5);--neon-soft:hsl(var(--hue) 96% 56% / .28)}
+.unit-fog{position:absolute;z-index:6;inset:-8% -4%;background:linear-gradient(180deg,rgba(30,36,44,.88),rgba(19,24,30,.72));opacity:calc(var(--away) * var(--away) * .16);pointer-events:none}
 
 /* Facade: concrete block, parapet, one lit bay. */
 .unit-enter{display:block;color:inherit;text-decoration:none}
@@ -67,11 +56,11 @@ html{overflow-x:clip}
 .unit-enter:hover .unit-facade{border-color:var(--neon-mid)}
 
 /* The sign out front — the thing you actually read as you walk. */
-.unit-sign{position:relative;z-index:2;display:block;width:fit-content;max-width:100%;margin:0 auto clamp(14px,2vw,22px);padding:.42em .82em;border:2px solid var(--neon);border-radius:9px;background:rgba(5,9,13,.55);box-shadow:0 0 11px -1px var(--neon-mid),0 0 44px -6px var(--neon-mid),inset 0 0 16px -4px var(--neon-mid);color:#f2fbff;font:800 clamp(18px,2.5vw,32px)/1.06 Outfit,sans-serif;letter-spacing:2.6px;text-transform:uppercase;text-shadow:0 0 7px var(--neon),0 0 22px var(--neon-mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;filter:saturate(calc(1 + var(--dn,0) * 1.1)) brightness(calc(1 + var(--dn,0) * .6))}
+.unit-sign{position:relative;z-index:2;display:block;width:fit-content;max-width:100%;margin:0 auto clamp(14px,2vw,22px);padding:.42em .82em;border:2px solid var(--neon);border-radius:9px;background:rgba(5,9,13,.55);box-shadow:0 0 11px -1px var(--neon-mid),0 0 44px -6px var(--neon-mid),inset 0 0 16px -4px var(--neon-mid);color:#f2fbff;font:800 clamp(13px,1.45vw,23px)/1.06 Outfit,sans-serif;letter-spacing:1.7px;text-transform:uppercase;text-shadow:0 0 7px var(--neon),0 0 22px var(--neon-mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;filter:saturate(calc(1 + var(--away) * .5)) brightness(calc(1 + var(--away) * .28))}
 .unit-enter:hover .unit-sign{background:rgba(8,14,20,.7);box-shadow:0 0 14px var(--neon-mid),0 0 66px -4px var(--neon-mid),inset 0 0 22px -3px var(--neon-mid)}
 
 /* Bay: shutter up, strip light on, one thing on display. */
-.unit-bay{position:relative;height:clamp(200px,29vw,364px);border:clamp(6px,.8vw,10px) solid #12171c;border-radius:2px;background:#05080a;box-shadow:inset 0 0 0 2px #2a333a,0 -3px 0 #0c1013,0 0 60px -14px var(--neon-mid);overflow:hidden}
+.unit-bay{position:relative;height:clamp(140px,18vh,240px);border:clamp(6px,.8vw,10px) solid #12171c;border-radius:2px;background:#05080a;box-shadow:inset 0 0 0 2px #2a333a,0 -3px 0 #0c1013,0 0 60px -14px var(--neon-mid);overflow:hidden}
 .bay-shutter{position:absolute;z-index:4;top:0;left:0;right:0;height:15px;background:repeating-linear-gradient(180deg,#333d45 0 2px,#12171b 2px 4px);box-shadow:0 5px 12px rgba(0,0,0,.75);display:block}
 .bay-room{position:absolute;inset:0;background:radial-gradient(74% 38% at 50% 0%,rgba(240,247,255,.5),rgba(240,247,255,.05) 50%,transparent 68%),linear-gradient(90deg,rgba(3,5,8,.74) 0,rgba(3,5,8,.18) 11%,transparent 22%,transparent 78%,rgba(3,5,8,.24) 89%,rgba(3,5,8,.76) 100%),linear-gradient(180deg,hsl(210 6% 44%) 0 53%,hsl(210 9% 23%) 53% 55.5%,hsl(210 5% 34%) 55.5%,hsl(210 8% 17%) 100%)}
 .bay-room::before{position:absolute;left:-4%;right:-4%;bottom:0;height:44%;clip-path:polygon(19% 0,81% 0,100% 100%,0 100%);background:linear-gradient(180deg,hsl(210 5% 31%),hsl(210 9% 13%));box-shadow:inset 0 1px hsl(210 9% 52%);content:""}
@@ -79,6 +68,12 @@ html{overflow-x:clip}
 .bay-lamp{position:absolute;z-index:2;top:22px;left:19%;right:19%;height:6px;border-radius:4px;background:#fff;box-shadow:0 0 14px 4px rgba(255,255,255,.95),0 18px 54px 16px rgba(222,235,250,.34);display:block}
 .bay-plinth{position:absolute;z-index:1;bottom:13%;left:50%;width:32%;height:6.5%;transform:translateX(-50%);clip-path:polygon(9% 0,91% 0,100% 100%,0 100%);background:linear-gradient(180deg,hsl(210 6% 46%),hsl(210 8% 24%));display:block}
 .bay-glow{position:absolute;z-index:0;bottom:6%;left:50%;width:74%;height:34%;transform:translateX(-50%);background:radial-gradient(ellipse at center,hsl(var(--hue) 96% 62% / .34),transparent 68%);filter:blur(11px);display:block}
+/* Mounted modules, read as a row of lit units on the bay floor. Hovering one names it. */
+.bay-modules{position:absolute;z-index:3;bottom:11%;left:50%;display:flex;gap:5px;transform:translateX(-50%)}
+.bay-modules i{width:clamp(7px,.9vw,12px);height:clamp(14px,1.8vw,24px);border-radius:2px;background:linear-gradient(180deg,hsl(var(--hue) 90% 68%),hsl(var(--hue) 80% 40%));box-shadow:0 0 10px hsl(var(--hue) 96% 60% / .7);opacity:.72;transition:.14s}
+.bay-modules i[data-status=stable]{opacity:.9}
+.bay-modules i:hover{opacity:1;transform:translateY(-3px);box-shadow:0 0 18px hsl(var(--hue) 96% 66% / .95)}
+.is-centre .bay-display,.is-centre .bay-modules i{cursor:help}
 .bay-lip{position:absolute;z-index:5;bottom:0;left:0;right:0;height:9px;background:repeating-linear-gradient(45deg,#e0bb35 0 9px,#14181c 9px 18px);opacity:.5;display:block}
 .bay-glass{position:absolute;z-index:6;inset:0;background:linear-gradient(112deg,rgba(226,240,255,.1) 0 15%,transparent 34%);pointer-events:none;display:block}
 
@@ -100,13 +95,40 @@ html{overflow-x:clip}
 .unit-enter-hint{position:absolute;z-index:7;right:clamp(18px,2.6vw,30px);bottom:clamp(18px,2.2vw,26px);padding:4px 8px;border:1px solid var(--neon-mid);border-radius:99px;background:rgba(5,9,13,.85);color:var(--neon);font:9px "DM Mono";text-transform:uppercase;letter-spacing:1px;opacity:0;transform:translateY(4px);transition:.18s}
 .unit-enter:hover .unit-enter-hint,.unit-enter:focus-visible .unit-enter-hint{opacity:1;transform:none}
 .unit-number{position:absolute;z-index:2;top:calc(clamp(16px,2.4vw,26px) - 2px);left:clamp(22px,3vw,34px);color:#4d5f6d;font:10px "DM Mono";letter-spacing:1px}
+.unit-prox b{color:#cfdce6;font-weight:500}
 .unit-prox{position:absolute;z-index:5;top:-13px;left:clamp(18px,3vw,40px);padding:4px 9px;border:1px solid rgba(150,168,184,.32);border-radius:3px;background:rgba(7,12,18,.92);color:#94a6b5;font:9px "DM Mono";text-transform:uppercase;letter-spacing:1.1px}
 .unit-prox[data-step="0"]{border-color:rgba(75,230,200,.5);color:#8ff3de;box-shadow:0 0 18px -6px rgba(75,230,200,.8)}
 .unit-prox[data-step="3"]{border-color:rgba(140,160,175,.3);color:#8496a4;box-shadow:none}
 .unit-spill{position:absolute;z-index:0;right:6%;bottom:-58px;left:-14%;height:160px;background:radial-gradient(ellipse 56% 100% at 46% 0%,hsl(var(--hue) 96% 62% / .46),transparent 74%);filter:blur(17px);pointer-events:none;display:block}
 
 /* The post, out on the wet street in front of the door, lit by the bay behind it. */
-.unit-post{position:relative;z-index:4;width:min(540px,96%);margin:-14px 0 0 calc(-1 * clamp(22px,7vw,132px));padding:13px 15px 11px;border:1px solid rgba(130,162,184,.24);border-left:2px solid var(--neon);background:linear-gradient(180deg,rgba(11,17,23,.94),rgba(6,10,14,.97));box-shadow:0 22px 40px -12px rgba(0,0,0,.8),0 0 34px -12px var(--neon-mid);opacity:calc(1 - var(--dn,0) * 2.4)}
+/* The post stays out of the transform so its text is never scaled or turned — it is the one thing
+   on the street meant to be read rather than looked at. It is wider than the garage above it and
+   centred under it, which only works because no garage but the centred one shows its own. */
+.unit-post{position:relative;z-index:4;width:min(520px,34vw);margin:12px auto 0;padding:13px 15px 11px;border:1px solid rgba(130,162,184,.24);border-left:2px solid var(--neon);background:linear-gradient(180deg,rgba(11,17,23,.94),rgba(6,10,14,.97));box-shadow:0 22px 40px -12px rgba(0,0,0,.8),0 0 34px -12px var(--neon-mid);opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+.is-centre .unit-post{opacity:1;transform:none;pointer-events:auto}
+.post-open{display:flex;align-items:center;gap:12px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(130,162,184,.16)}
+.post-open a,.post-open .quiet{font:11px "DM Mono"}
+.post-open a{color:var(--neon);font:11px "DM Mono";text-decoration:none}
+.post-open a:hover{text-shadow:0 0 12px var(--neon-mid)}
+.post-open .quiet{margin-left:auto;color:#7f95a7;font-size:10px}
+.post-open .quiet:hover{color:#cfe0ec;text-shadow:none}
+.post-actions .activity-toggle.active{border-color:var(--neon);color:#eaf6ff}
+
+/* Recent activity, opened in place under the garage rather than on another page. */
+.post-activity{max-height:min(170px,17vh);margin-top:10px;padding-top:9px;overflow-y:auto;border-top:1px solid rgba(130,162,184,.16);overscroll-behavior:contain}
+.activity-row{padding:7px 0;border-bottom:1px solid rgba(130,162,184,.1)}
+.activity-row:last-of-type{border-bottom:0}
+.activity-row header{display:flex;align-items:baseline;gap:8px}
+.activity-row b{color:#dbe9f3;font:600 11px Outfit,sans-serif}
+.activity-row time{color:#6e8391;font:9px "DM Mono"}
+.activity-row p{margin:3px 0 0;color:#a9bccb;font-size:11.5px;line-height:1.5}
+.activity-row.own p{color:#cadbe8}
+.activity-row.own b{color:var(--neon)}
+.activity-note{margin:7px 0 0;color:#6e8391;font:9px "DM Mono"}
+
+/* The label of whatever is under the pointer, following the pointer. */
+.street-tip{position:fixed;z-index:60;top:0;left:0;padding:5px 9px;border:1px solid rgba(150,168,184,.34);border-radius:4px;background:rgba(6,10,15,.96);color:#dceaf4;font:10px "DM Mono";white-space:nowrap;pointer-events:none;box-shadow:0 10px 26px rgba(0,0,0,.6)}
 .post-copy{margin:0;color:#c9dae7;font-size:12.5px;line-height:1.5}
 .post-actions{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-top:11px;padding-top:9px;border-top:1px solid rgba(130,162,184,.16)}
 .post-actions>div{display:flex;flex-wrap:wrap;gap:6px}
@@ -123,12 +145,8 @@ html{overflow-x:clip}
 .module-picker-list label:hover{background:rgba(75,230,200,.055)}.module-picker-list input{accent-color:#4be6c8}.module-picker-list i{width:3px;height:24px;border-radius:3px;background:#4be6c8;opacity:.5}.module-picker-list label>span{display:grid;min-width:0;gap:2px}.module-picker-list b{overflow:hidden;text-overflow:ellipsis;color:#b9cbd6;font-size:10px;white-space:nowrap}.module-picker-list small{color:#6e8391;font-size:8px}
 .module-picker>footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px}.module-picker>footer p{max-width:300px;margin:0;color:#657a87;font-size:8px;line-height:1.4}.module-picker>footer button{border:1px solid rgba(75,230,200,.38);border-radius:6px;padding:6px 9px;background:rgba(18,89,74,.26);color:#9bf5e2;font:9px "DM Mono"}.module-picker>footer button:disabled{opacity:.5}
 
-/* Block markers hung over the row when the walk crosses into a different kind of builder. */
-
-.district-sign{--d:max(0, 1 - var(--near) - .07);--dn:min(1, var(--d) * 1.61);--z:calc((var(--near) - 1) * 1500px + var(--pass) * 460px);--ry:calc(15deg + (1 - var(--near)) * 7deg - var(--pass) * 5deg);position:relative;z-index:3;width:fit-content;max-width:min(440px,46vw);margin-right:clamp(20px,4vw,70px);white-space:nowrap;transform:translateX(calc(var(--dn) * -18vw)) translateZ(var(--z,0)) rotateY(var(--ry,12deg));margin:0 0 clamp(-120px,-9vh,-30px) auto;padding:8px 14px;border:1px solid rgba(150,168,184,.3);border-radius:4px;background:rgba(6,11,17,.82);color:#94a6b5;font:10px "DM Mono";text-transform:uppercase;letter-spacing:2px;text-align:center;box-shadow:0 0 22px -12px rgba(180,198,214,.6),0 14px 26px -16px #000;opacity:calc((1 - var(--dn) * var(--dn) * .85) * (1 - var(--pass) * .94));filter:blur(calc(var(--dn) * var(--dn) * 2px))}
-.district-sign b{color:#cfdce6;font-weight:500}
-.street-sentinel{display:block;height:2px}
-.street-empty{width:min(560px,80%);margin-left:auto;padding:26px;border:1px solid rgba(130,162,184,.24);background:rgba(8,13,19,.85);color:#b9cddc;font-size:13px}
+.street-sentinel{flex:0 0 1px;align-self:stretch}
+.street-empty{width:min(560px,80%);margin:auto;padding:26px;border:1px solid rgba(130,162,184,.24);background:rgba(8,13,19,.85);color:#b9cddc;font-size:13px}
 
 /* Your own agent, walking beside you. */
 .agent-sidecar{position:fixed;z-index:40;left:clamp(10px,2vw,22px);bottom:clamp(10px,2vw,22px);width:min(328px,calc(100vw - 24px));max-height:min(78vh,660px);overflow:auto;padding:15px;border:1px solid rgba(122,166,255,.3);border-radius:12px;background:linear-gradient(180deg,rgba(10,16,23,.96),rgba(6,10,15,.97));color:#dbe9f3;box-shadow:0 26px 60px rgba(0,0,0,.7),0 0 34px -18px rgba(122,166,255,.9);backdrop-filter:blur(12px);transition:transform .25s ease,opacity .25s ease}
@@ -178,6 +196,6 @@ html{overflow-x:clip}
 .sidecar-account{display:block;margin-top:11px;color:#8fb6dd;font-size:10px;text-decoration:none}
 .sidecar-account:hover{color:#fff}
 
-@media(max-width:1100px){.garage-unit{width:min(620px,66vw)}.district-sign{max-width:min(360px,52vw)}.street-feed{padding-left:clamp(0px,12vw,180px)}}
-@media(max-width:860px){.street-feed{perspective:1100px;padding:6vh 0 0}.garage-unit{width:100%}.district-sign{width:auto;max-width:100%;white-space:normal}.garage-unit{--z:calc((var(--near) - 1) * 420px + var(--pass) * 150px);--ry:calc(4deg + (1 - var(--near)) * 4deg);--lift:0px;margin-bottom:40px;transform:translateZ(var(--z)) rotateY(var(--ry))}.district-sign{--lift:0px;margin:0 0 16px;transform:translateZ(var(--z,0)) rotateY(var(--ry,4deg))}.unit-post{width:100%;margin-left:0}.street-hud{top:60px}.agent-sidecar{left:8px;right:8px;width:auto;max-height:64vh}}
-@media(max-width:600px){.unit-sign{letter-spacing:1.6px}.unit-bay{height:clamp(160px,46vw,240px)}.street-position{font-size:10px}.unit-prox{left:12px}.unit-plate{align-items:flex-start;text-align:left}.module-picker-list{grid-template-columns:1fr}}
+@media(max-width:1100px){.garage-unit{width:34vw}.street-feed{padding-inline:calc(50% - 17vw)}.unit-post{width:min(460px,44vw)}}
+@media(max-width:860px){.street-feed{padding:3vh calc(50% - 33vw) 2vh}.garage-unit{width:66vw}.unit-body{transform:translateX(calc(var(--slot) * -4vw + var(--slot) * var(--away) * -1.5vw)) rotateY(calc(var(--slot) * -5deg)) scale(calc(1 - var(--away) * .2))}.unit-post{width:min(420px,86vw)}.street-hud{top:60px}.agent-sidecar{left:8px;right:8px;width:auto;max-height:64vh}}
+@media(max-width:600px){.unit-sign{letter-spacing:1.6px}.unit-bay{height:clamp(150px,34vw,220px)}.street-position{font-size:10px}.unit-prox{left:12px}.unit-plate{align-items:flex-start;text-align:left}.module-picker-list{grid-template-columns:1fr}}

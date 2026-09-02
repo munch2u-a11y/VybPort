@@ -23,7 +23,7 @@ const steps=[
  {label:'across the district',blurb:'different stack, open door'}
 ];
 const TRAY='vybport.street.tray';
-let filter='all',radius='near',query='',badges=new Map(),pinned=null,lowBlock=0,highBlock=1,loading=false,edgeObserver,depthFrame,depthNodes=[],providers=[];
+let filter='all',radius='near',query='',badges=new Map(),pinned=null,lowBlock=0,highBlock=1,loading=false,edgeObserver,slotFrame,slotNodes=[],centreNode=null,providers=[];
 const $=s=>document.querySelector(s);
 const safe=v=>String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),2400)};
@@ -43,9 +43,15 @@ function orderForBlock(block){const items=activeGarages();if(!items.length)retur
 
 /* Markup */
 function ribbon(item){const badge=badges.get(item.id);return badge?`<span class="post-ribbon">${badge.placement===1?'1st':badge.placement===2?'2nd':'3rd'} · ${safe(badge.leaderboard)}</span>`:''}
-function displayMarkup(item){return item.img
- ?`<div class="bay-display photo"><img class="display-photo" src="${item.img}" alt="${safe(item.display)} on display" loading="lazy"></div>`
- :`<div class="bay-display" data-rig="${item.rig}"><span class="display-mark">${safe(item.mark)}</span></div>`}
+function displayMarkup(item){const tip=safe(`${item.display} — ${item.displayCopy||item.kind}`);
+ return item.img
+ ?`<div class="bay-display photo" data-tip="${tip}"><img class="display-photo" src="${item.img}" alt="${safe(item.display)} on display" loading="lazy"></div>`
+ :`<div class="bay-display" data-rig="${item.rig}" data-tip="${tip}"><span class="display-mark">${safe(item.mark)}</span></div>`}
+/* Mounted modules read as a row of labelled units along the bay floor: the shape of the build is
+   visible at a glance, and the name of any one of them follows the pointer. */
+function moduleStrip(item){const modules=(item.modules||[]).slice(0,7);if(!modules.length)return '';
+ return `<div class="bay-modules">${modules.map(module=>
+  `<i data-tip="${safe(`${module.name||module.slot} · ${module.slot}${module.lang?' · '+module.lang:''}`)}" data-status="${safe(module.status||'')}"></i>`).join('')}</div>`}
 function savedSlots(item){const saved=item.live&&myGarage?.bench?.find(project=>project.origin_project===item.projectId);return saved?(saved.modules||[]).map(module=>module.slot):[]}
 function unitMarkup(item,block,number){const distance=step(item),overlap=shared(item),saved=savedSlots(item),cloned=item.live?saved.length>0:tray().includes(item.id);
  return `<article class="garage-unit" data-id="${item.id}" data-block="${block}" style="--hue:${item.hue}">
@@ -56,14 +62,14 @@ function unitMarkup(item,block,number){const distance=step(item),overlap=shared(
     <span class="unit-sign">${safe(item.owner)}</span>
     <div class="unit-bay">
      <i class="bay-shutter"></i>
-     <div class="bay-room"><i class="bay-lamp"></i><i class="bay-glow"></i>${displayMarkup(item)}<i class="bay-plinth"></i></div>
+     <div class="bay-room"><i class="bay-lamp"></i><i class="bay-glow"></i>${displayMarkup(item)}<i class="bay-plinth"></i>${moduleStrip(item)}</div>
      <i class="bay-lip"></i><i class="bay-glass"></i>
     </div>
     <span class="unit-enter-hint">Enter garage →</span>
    </div>
    <div class="unit-plate"><b>On display · ${safe(item.display)}</b><span>${safe(item.handle)} · ${safe(item.kind)} · door open ${safe(item.when)}</span></div>
   </a>
-  <span class="unit-prox" data-step="${distance}">${overlap.length?'shares '+safe(overlap.join(', ')):'no shared tags yet'}</span>
+  <span class="unit-prox" data-step="${distance}"><b>${safe(steps[distance].label)}</b> · ${overlap.length?'shares '+safe(overlap.join(', ')):'no shared tags yet'}</span>
   <i class="unit-spill"></i><i class="unit-fog"></i>
  </div>
  <div class="unit-post">
@@ -72,44 +78,62 @@ function unitMarkup(item,block,number){const distance=step(item),overlap=shared(
    <div>
     <button data-like="${item.id}" class="bolt">⚡ bolt</button>
     <button data-comment="${item.id}">◌ note</button>
+    <button data-activity="${item.id}" class="activity-toggle">▤ recent</button>
     <button data-clone="${item.id}" class="clone${cloned?' done':''}">${item.live?(cloned?`✓ ${saved.length} in locker`:'⑂ save modules'):(cloned?'✓ saved':'⑂ save '+safe(item.repo))}</button>
     <button data-pin="${item.id}">✦ hand to agent</button>
    </div>${ribbon(item)}
   </footer>
+  <div class="post-open">
+   <a href="./index.html?user=${encodeURIComponent(item.user)}">Enter ${safe(item.owner)}'s garage →</a>
+   <span class="quiet">${safe(item.handle)}</span>
+  </div>
  </div></article>`}
-function blockMarkup(block){const items=orderForBlock(block),size=activeGarages().length;let last=-1,html='';
- items.forEach((item,index)=>{const distance=step(item);
-  if(distance!==last){last=distance;html+=`<div class="district-sign" data-block="${block}">▮ <b>${steps[distance].label}</b> — ${steps[distance].blurb}</div>`}
-  html+=unitMarkup(item,block,block*size+index+1)});
- return html}
+/* Walking distance used to hang over the row on its own sign. Sideways there is no room for one,
+   so each garage wears its own on the plate under the door. */
+function blockMarkup(block){const items=orderForBlock(block),size=activeGarages().length;
+ return items.map((item,index)=>unitMarkup(item,block,block*size+index+1)).join('')}
 
-/* Depth: near garages face you, far ones fall back into the fog, passed ones slide by your shoulder. */
-function updateDepths(){depthFrame=0;const height=innerHeight,focus=height*.44,feed=$('#streetFeed');
- /* The vanishing point belongs to the viewport, not to a feed that grows for as long as you walk. */
- feed.style.perspectiveOrigin=`16% ${Math.round(focus-feed.getBoundingClientRect().top)}px`;
- for(const node of depthNodes){const rect=node.getBoundingClientRect();
-  /* Doors well off the walk are not painted at all; the one in front of you skips the blur pass entirely. */
-  if(rect.bottom<-height*.5||rect.top>height*2){node.style.visibility='hidden';continue}
-  const offset=(rect.top+rect.height*.5-focus)/height,near=offset<=0?1:Math.max(0,1-offset/1.45),pass=offset<0?Math.min(1,-offset/.55):0;
-  node.style.visibility='';node.style.filter=near>.93&&pass<.04?'none':'';
-  node.style.setProperty('--near',near.toFixed(3));node.style.setProperty('--pass',pass.toFixed(3));
-  node.style.zIndex=Math.round(400+pass*400+near*80)}}
-function queueDepths(){if(!depthFrame)depthFrame=requestAnimationFrame(updateDepths)}
-function collectDepthNodes(){depthNodes=[...$('#streetFeed').querySelectorAll('.garage-unit,.district-sign')];queueDepths()}
+/* You walk the row sideways. One garage is in the slot in front of you, two fall back on either
+   side, and the rest keep going past the edges of the frame. Everything is driven off --slot: the
+   signed distance from the middle of the track, measured in garages, which the CSS turns into
+   position, scale, turn and light. Measuring the untransformed pitch from the track's own layout
+   (not from a transformed rect) keeps this a plain readout instead of a feedback loop. */
+function updateSlots(){slotFrame=0;const feed=$('#streetFeed');if(!feed||!slotNodes.length)return;
+ const box=feed.getBoundingClientRect(),mid=box.left+box.width/2,pitch=slotNodes[0].offsetWidth||1;
+ let closest=null,closestGap=Infinity;
+ for(const node of slotNodes){
+  /* offsetLeft is the untransformed layout position, so the transform this drives cannot feed back. */
+  const centre=node.offsetLeft+node.offsetWidth/2-feed.scrollLeft-(box.width/2),gap=centre/pitch,away=Math.min(Math.abs(gap),3);
+  if(away>=3&&Math.abs(gap)>4.5){node.style.visibility='hidden';continue}
+  node.style.visibility='';
+  node.style.setProperty('--slot',gap.toFixed(3));
+  node.style.setProperty('--away',away.toFixed(3));
+  node.style.zIndex=Math.round(400-away*40);
+  if(Math.abs(gap)<closestGap){closestGap=Math.abs(gap);closest=node}}
+ if(closest!==centreNode){
+  centreNode?.classList.remove('is-centre');
+  centreNode?.querySelector('.post-activity')?.remove();
+  centreNode=closest;centreNode?.classList.add('is-centre')}}
+function queueDepths(){if(!slotFrame)slotFrame=requestAnimationFrame(updateSlots)}
+function collectDepthNodes(){slotNodes=[...$('#streetFeed').querySelectorAll('.garage-unit')];centreNode=null;queueDepths()}
 
 /* The street keeps going: add a block ahead, retire one behind so the walk stays cheap. */
 function observeStreetEdges(){edgeObserver?.disconnect();const sentinel=$('#bottomStreetSentinel');if(!sentinel)return;
- edgeObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting)extendDown()}),{rootMargin:'600px 0px'});
+ edgeObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting)extendDown()}),{root:$('#streetFeed'),rootMargin:'0px 900px'});
  edgeObserver.observe(sentinel)}
 function extendDown(){if(loading||!activeGarages().length)return;loading=true;
  const sentinel=$('#bottomStreetSentinel');sentinel.insertAdjacentHTML('beforebegin',blockMarkup(++highBlock));
  trimBehind();collectDepthNodes();observeStreetEdges();loading=false}
 function trimBehind(){const feed=$('#streetFeed');if(highBlock-lowBlock<5)return;
  const stale=[...feed.querySelectorAll(`[data-block="${lowBlock}"]`)];lowBlock++;if(!stale.length)return;
- const before=feed.scrollHeight;stale.forEach(node=>node.remove());
- scrollTo({top:scrollY-(before-feed.scrollHeight),behavior:'instant'})}
+ const before=feed.scrollWidth;stale.forEach(node=>node.remove());
+ feed.scrollLeft-=before-feed.scrollWidth}
 function resetStreet(){lowBlock=0;highBlock=1;const feed=$('#streetFeed'),items=activeGarages();
  feed.innerHTML=items.length?`${blockMarkup(0)}${blockMarkup(1)}<i class="street-sentinel" id="bottomStreetSentinel"></i>`:'<div class="street-empty">Nothing open at this walking distance. Widen the radius, or search — every garage stays reachable by name.</div>';
+ /* Open the walk already standing in the row rather than at the end of it, so there are doors on
+    both sides of you from the first frame. */
+ const third=feed.children[2];
+ feed.scrollLeft=third?third.offsetLeft+third.offsetWidth/2-feed.clientWidth/2:0;
  updatePosition();collectDepthNodes();if(items.length)observeStreetEdges()}
 function updatePosition(){const items=activeGarages(),close=items.filter(item=>step(item)<=1).length,name=hood?hood.name:'this neighborhood';
  $('#streetPosition').textContent=query?`Searching ${name} · ${items.length} garage${items.length===1?'':'s'} answer to “${query}”.`
@@ -162,6 +186,19 @@ async function clone(item,button){
 async function saveModules(item,article){const picker=article.querySelector('.module-picker'),slots=[...picker.querySelectorAll('input:checked')].map(input=>input.value);if(!slots.length){toast('Choose at least one module.');return}const button=picker.querySelector('[data-save-modules]');button.disabled=true;button.textContent='Saving…';
  try{const result=await api(`/api/garages/${myGarage.id}/borrow`,{method:'POST',body:JSON.stringify({project:item.projectId,slots})});myGarage=result.garage;picker.remove();const trigger=article.querySelector('[data-clone]'),count=savedSlots(item).length;trigger.classList.add('done');trigger.textContent=`✓ ${count} in locker`;updateTray();toast(`${slots.length} module${slots.length===1?'':'s'} saved. ${result.saved_files||0} reviewed code file${result.saved_files===1?'':'s'} came with them.`)}
  catch(error){button.disabled=false;button.textContent='Save selection to locker';toast(error.message)}}
+/* The garage's own thread, read without leaving the row. */
+async function toggleActivity(item,button){
+ const post=button.closest('.unit-post'),open=post.querySelector('.post-activity');
+ if(open){open.remove();button.textContent='▤ recent';button.classList.remove('active');return}
+ button.textContent='▤ hide';button.classList.add('active');
+ const panel=document.createElement('div');panel.className='post-activity';
+ panel.innerHTML='<p class="activity-note">Reading this garage’s thread…</p>';post.appendChild(panel);
+ try{const social=await api(`/api/social?target=${encodeURIComponent(item.id)}`);
+  const rows=[`<article class="activity-row own"><header><b>${safe(item.owner)}</b><time>${safe(item.when)}</time></header><p>${safe(item.post)}</p></article>`]
+   .concat((social.comments||[]).map(comment=>
+    `<article class="activity-row"><header><b>${safe(comment.display_name)}</b><time>note</time></header><p>${safe(comment.body)}</p></article>`));
+  panel.innerHTML=`${rows.join('')}<p class="activity-note">${social.likes} bolt${social.likes===1?'':'s'} · ${(social.comments||[]).length} note${(social.comments||[]).length===1?'':'s'} on this garage.</p>`}
+ catch(error){panel.innerHTML=`<p class="activity-note">${safe(error.message)}</p>`}}
 function pin(item){pinned=item;openDock();
  $('#agentContext').innerHTML=`<span class="eyebrow">Pinned context</span><b>${safe(item.owner)} · ${safe(item.display)}</b><p>${safe(item.post)}</p>`;
  $('#wanderAgentInput').focus()}
@@ -230,10 +267,11 @@ document.querySelector('.wander-controls').onclick=event=>{const button=event.ta
  if(button.dataset.radius){radius=button.dataset.radius;document.querySelectorAll('[data-radius]').forEach(other=>other.classList.toggle('active',other===button))}
  resetStreet();scrollTo({top:0,behavior:'instant'})};
 $('#streetFeed').onclick=async event=>{const button=event.target.closest('button');if(!button)return;
- const id=button.dataset.like||button.dataset.comment||button.dataset.pin||button.dataset.clone||button.dataset.saveModules||button.dataset.cancelSave;
+ const id=button.dataset.like||button.dataset.comment||button.dataset.pin||button.dataset.clone||button.dataset.saveModules||button.dataset.cancelSave||button.dataset.activity;
  const item=pool().find(value=>value.id===id);if(!item)return;
  if(button.dataset.cancelSave){button.closest('.module-picker')?.remove();return}
  if(button.dataset.saveModules){saveModules(item,button.closest('.garage-unit'));return}
+ if(button.dataset.activity){toggleActivity(item,button);return}
  if(button.dataset.pin){pin(item);return}
  if(button.dataset.clone){clone(item,button);return}
  if(button.dataset.comment){const body=window.prompt(`Leave ${item.owner} a useful public note`);if(!body)return;
@@ -265,7 +303,25 @@ $('#linkAgentForm').onsubmit=async event=>{event.preventDefault();
   toast(`${result.agent.label} is walking with you.`)}
  catch(error){toast(error.message)}};
 
-addEventListener('scroll',queueDepths,{passive:true});
+$('#streetFeed').addEventListener('scroll',queueDepths,{passive:true});
 addEventListener('resize',queueDepths);
+
+/* The name of whatever is under the pointer, at the pointer. */
+const streetTip=document.createElement('div');streetTip.className='street-tip';streetTip.hidden=true;
+document.body.appendChild(streetTip);
+$('#streetFeed').addEventListener('pointermove',event=>{
+ const host=event.target.closest('[data-tip]'),unit=event.target.closest('.garage-unit');
+ if(!host||!unit?.classList.contains('is-centre')){streetTip.hidden=true;return}
+ streetTip.textContent=host.dataset.tip;streetTip.hidden=false;
+ const flip=event.clientX>innerWidth-260;
+ streetTip.style.transform=`translate(${flip?event.clientX-streetTip.offsetWidth-16:event.clientX+16}px,${event.clientY+18}px)`});
+$('#streetFeed').addEventListener('pointerleave',()=>{streetTip.hidden=true});
+
+/* Clicking a garage further down the row walks to it rather than opening it. */
+$('#streetFeed').addEventListener('click',event=>{
+ const unit=event.target.closest('.garage-unit');
+ if(!unit||unit.classList.contains('is-centre'))return;
+ event.preventDefault();streetTip.hidden=true;
+ unit.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})});
 if(innerWidth<=860&&!agentState.isOpen())$('#agentSidecar').hidden=true;else if(agentState.isOpen())openDock();
 updateTray();resetStreet();loadStreet().catch(()=>{});loadBadges();loadAgents();loadProviders();
