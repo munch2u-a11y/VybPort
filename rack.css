@@ -1,0 +1,144 @@
+/* The project rack: a workspace shown as mounted modules and the cables between them, not a file tree. */
+.rack{--role-memory:#4be6c8;--role-interface:#4fd3ff;--role-logic:#a87fff;--role-effects:#ff5fb0;--role-tests:#f2c15a;--role-config:#8fa8bd;--role-docs:#c9b28a;--role-assets:#ff9a5f;--role-agents:#7aa6ff;position:relative;color:#dfe8ef}
+.rack-frame{position:relative;padding:26px clamp(16px,2.4vw,30px) 30px 44px;border:1px solid #2a343d;border-radius:12px;background:linear-gradient(180deg,#141a20,#0a0e13 60%),repeating-linear-gradient(90deg,transparent 0 46px,rgba(160,190,210,.03) 46px 47px);box-shadow:inset 0 1px rgba(190,220,240,.1),0 22px 46px -26px #000;overflow:hidden}
+
+/* Frame hardware: rails top and bottom, a powered spine running down the left. */
+.rack-rail{position:absolute;left:0;right:0;height:12px;background:repeating-linear-gradient(45deg,#3d4750 0 8px,#171d23 8px 16px);opacity:.75;display:block}
+.rack-rail.top{top:0;box-shadow:0 1px 0 rgba(200,225,245,.14)}
+.rack-rail.bottom{bottom:0;box-shadow:0 -1px 0 rgba(200,225,245,.1)}
+.rack-spine{position:absolute;top:12px;bottom:12px;left:20px;width:7px;border-radius:4px;background:linear-gradient(180deg,#2b353d,#161c22);box-shadow:inset 0 0 0 1px rgba(190,220,240,.14),0 0 22px -4px rgba(75,230,200,.5);display:block}
+.rack-spine::after{position:absolute;top:6px;bottom:6px;left:2px;width:3px;border-radius:3px;background:linear-gradient(180deg,#4be6c8,#7aa6ff);opacity:.7;content:""}
+
+/* Cables sit behind the modules, so they read as running through the frame. */
+.rack-cables{position:absolute;z-index:1;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.rack-cables path{fill:none;stroke-linecap:round;transition:opacity .2s}
+.rack-cables .cable-core{stroke-dasharray:5 13;animation:cable-flow 2.4s linear infinite}
+.rack[data-focus] .cable{opacity:.12}
+.rack[data-focus] .cable[data-active]{opacity:1}
+@keyframes cable-flow{to{stroke-dashoffset:-36}}
+
+.rack-shelves{position:relative;z-index:2;display:grid;gap:clamp(26px,3.4vw,44px)}
+.rack-shelf{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(14px,2vw,26px)}
+
+/* One module = one pod clamped to the shelf. */
+.pod{--tone:var(--role-logic);position:relative;display:grid;gap:7px;padding:14px 13px 12px;border:1px solid color-mix(in srgb,var(--tone) 38%,#2b343d);border-radius:9px;background:linear-gradient(180deg,color-mix(in srgb,var(--tone) 9%,#111820),#0a0f14);box-shadow:0 14px 28px -18px #000,inset 0 1px rgba(255,255,255,.06);text-align:left;color:inherit;font:inherit;cursor:pointer;transition:transform .18s,box-shadow .18s,border-color .18s}
+.pod[data-role=memory]{--tone:var(--role-memory)}
+.pod[data-role=interface]{--tone:var(--role-interface)}
+.pod[data-role=logic]{--tone:var(--role-logic)}
+.pod[data-role=effects]{--tone:var(--role-effects)}
+.pod[data-role=tests]{--tone:var(--role-tests)}
+.pod[data-role=config]{--tone:var(--role-config)}
+.pod[data-role=docs]{--tone:var(--role-docs)}
+.pod[data-role=assets]{--tone:var(--role-assets)}
+.pod[data-role=agents]{--tone:var(--role-agents)}
+.pod:hover,.pod:focus-visible,.pod[aria-expanded=true]{outline:0;transform:translateY(-3px);border-color:var(--tone);box-shadow:0 20px 34px -18px #000,0 0 34px -12px var(--tone)}
+.rack[data-focus] .pod{opacity:.34}
+.rack[data-focus] .pod[data-active]{opacity:1}
+
+/* Clamps and ports — the hardware that says "mounted", not "listed". */
+.pod-clamp{position:absolute;left:50%;width:34px;height:7px;transform:translateX(-50%);border-radius:2px;background:linear-gradient(180deg,#4a555f,#1d242b);box-shadow:inset 0 1px rgba(210,232,248,.3);display:block}
+.pod-clamp.top{top:-4px}
+.pod-clamp.bottom{bottom:-4px}
+.pod-port{position:absolute;top:50%;width:7px;height:7px;margin-top:-3px;border-radius:50%;background:var(--tone);box-shadow:0 0 10px var(--tone);display:block}
+.pod-port.left{left:-4px}
+.pod-port.right{right:-4px}
+.pod-slot{color:#8ba1b2;font:9px "DM Mono";text-transform:uppercase;letter-spacing:1.4px}
+.pod.empty{border-style:dashed;border-color:rgba(130,162,184,.28);background:rgba(9,13,18,.6);cursor:default}
+.pod.empty h3,.pod.empty .pod-role{color:#5f7387}
+.pod.empty .pod-glyph{opacity:.22}
+.pod.empty .pod-port,.pod.empty .pod-gauge i{opacity:.25}
+.pod.empty:hover{transform:none;box-shadow:none;border-color:rgba(130,162,184,.4)}
+.pod header{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.pod-role{color:var(--tone);font:10px "DM Mono";text-transform:uppercase;letter-spacing:1.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pod-led{width:6px;height:6px;flex:0 0 auto;border-radius:50%;background:#3b4750;display:block}
+.pod[data-status=hot] .pod-led{background:#4be6c8;box-shadow:0 0 9px #4be6c8;animation:pod-pulse 2.6s ease-in-out infinite}
+.pod[data-status=active] .pod-led{background:#f2c15a;box-shadow:0 0 8px #f2c15a}
+@keyframes pod-pulse{0%,100%{opacity:1}50%{opacity:.42}}
+
+/* Each module gets a diagram of what kind of thing it is, drawn in its own colour. */
+.pod-glyph{display:grid;place-items:center;height:66px;margin:1px 0 2px;border:1px solid color-mix(in srgb,var(--tone) 22%,#222b33);border-radius:6px;background:radial-gradient(70% 90% at 50% 15%,color-mix(in srgb,var(--tone) 16%,transparent),transparent 70%),#070c11;overflow:hidden}
+.pod-glyph svg{width:100%;height:100%}
+.pod-glyph [stroke]{stroke:var(--tone)}
+.pod-glyph [fill]:not([fill=none]){fill:var(--tone)}
+.pod h3{margin:0;color:#eaf3fa;font:600 14px Outfit,sans-serif;letter-spacing:-.2px;text-transform:capitalize}
+.pod-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center;color:#8ba1b2;font:10px "DM Mono"}
+.pod-lang{border:1px solid color-mix(in srgb,var(--tone) 40%,transparent);border-radius:99px;padding:2px 6px;color:var(--tone)}
+.pod-gauge{height:3px;border-radius:3px;background:#1b232a;overflow:hidden}
+.pod-gauge i{display:block;height:100%;background:var(--tone);box-shadow:0 0 8px var(--tone)}
+
+/* Legend: the colour key that answers "where is the memory system". */
+.rack-legend{display:flex;flex-wrap:wrap;gap:6px}
+.rack-legend span{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(150,180,200,.22);border-radius:99px;padding:4px 9px;color:#b3c5d2;font:10px "DM Mono"}
+.rack-legend i{width:8px;height:8px;border-radius:2px;background:var(--tone);box-shadow:0 0 8px var(--tone)}
+
+/* A rack dropped into a light page still reads as a lit case. */
+.display-feature{display:grid;grid-template-columns:minmax(0,.66fr) minmax(0,1.34fr);gap:20px;margin-bottom:14px;padding:20px;border:1px solid #cfd9d2;border-radius:14px;background:linear-gradient(160deg,#101720,#0a0d12)}
+.display-feature .feature-copy{display:grid;align-content:center;gap:11px}
+.display-feature h3{margin:0;color:#eef6fb;font:600 26px Outfit,sans-serif;letter-spacing:-.7px}
+.display-feature p{margin:0;color:#9db3c4;font-size:12.5px;line-height:1.55}
+.display-feature .eyebrow{color:#7d93a5}
+.display-feature .button.ghost{justify-self:start;text-decoration:none;border-color:rgba(122,166,255,.42);background:rgba(13,21,30,.85);color:#bcd4ea}
+.display-feature .button.ghost:hover{border-color:#7aa6ff;color:#fff}
+@media(max-width:860px){.display-feature{grid-template-columns:1fr}}
+
+/* Reading the heavy text is the agent's job; this drawer just says where to point it. */
+.rack-detail{margin-top:14px;padding:15px 16px;border:1px solid rgba(130,162,184,.28);border-radius:10px;background:rgba(9,14,20,.9)}
+.rack-detail[hidden]{display:none}
+.detail-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
+.detail-head h3{margin:0;color:#eef6fb;font:600 17px Outfit,sans-serif;text-transform:capitalize}
+.detail-head .pod-role{font-size:11px}
+.detail-stats{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0 11px}
+.detail-stats span{border:1px solid rgba(130,162,184,.24);border-radius:99px;padding:3px 8px;color:#a9c0cf;font:10px "DM Mono"}
+.detail-wires{margin:0 0 10px;color:#8ba1b2;font:11px "DM Mono";line-height:1.6}
+.detail-wires b{color:#dfeaf3;font-weight:500}
+.detail-files{display:grid;gap:3px;margin:0 0 12px;padding:10px;border:1px solid rgba(130,162,184,.18);border-radius:7px;background:#060b10;max-height:150px;overflow:auto}
+.detail-files span{color:#8ba1b2;font:10.5px "DM Mono";word-break:break-all}
+.detail-actions{display:flex;flex-wrap:wrap;gap:8px}
+.rack-detail .button{border-radius:8px;padding:8px 11px;font-size:12px}
+.rack-empty{padding:28px;color:#93a9ba;font-size:12.5px;text-align:center}
+
+/* Compact: the version that sits on a profile display rather than filling a project page. */
+.rack.compact .rack-frame{padding:20px 16px 22px 34px}
+.rack.compact .rack-spine{left:14px;width:5px}
+.rack.compact .rack-shelf{gap:14px}
+.rack.compact .pod{gap:5px;padding:10px 9px 9px}
+.rack.compact .pod-glyph{height:42px}
+.rack.compact .pod h3{font-size:12px}
+.rack.compact .pod-meta{font-size:9px}
+.rack.compact .rack-shelves{gap:22px}
+
+@media(prefers-reduced-motion:reduce){.rack-cables .cable-core,.pod[data-status=hot] .pod-led{animation:none}}
+@media(max-width:900px){.rack-shelf{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.rack-frame{padding-left:30px}.rack-spine{left:12px}.rack-shelf{gap:14px}}
+@media(max-width:430px){.rack-shelf{grid-template-columns:minmax(0,1fr)}}
+
+/* Layouts. A street picks one; the bay order is the street's, so the same bay lands in the same
+   place in every garage on it — assets bottom-right on a game street, whoever's garage it is. */
+.rack[data-layout=board] .rack-shelf{grid-template-columns:minmax(0,1fr)}
+.rack[data-layout=board] .rack-shelves{gap:11px}
+.rack[data-layout=board] .pod{grid-template-columns:120px 96px minmax(0,1fr);grid-template-areas:"slot glyph body";align-items:center;gap:14px;padding:12px 16px}
+.rack[data-layout=board] .pod-slot{grid-area:slot;align-self:center;font-size:11px}
+.rack[data-layout=board] .pod header{grid-area:slot;align-self:end;margin-bottom:-20px}
+.rack[data-layout=board] .pod-glyph{grid-area:glyph;height:52px;margin:0}
+.rack[data-layout=board] .pod h3{grid-area:body;align-self:end}
+.rack[data-layout=board] .pod-meta{grid-area:body;align-self:start;margin-top:26px}
+.rack[data-layout=board] .pod-gauge{display:none}
+.rack[data-layout=board] .pod-clamp{width:20px}
+
+.rack[data-layout=console] .rack-shelf{grid-template-columns:repeat(2,minmax(0,1fr))}
+.rack[data-layout=console] .pod{border-radius:4px;border-width:1px 1px 3px}
+.rack[data-layout=console] .pod-glyph{height:76px;border-radius:3px;background:radial-gradient(80% 100% at 50% 0,color-mix(in srgb,var(--tone) 22%,transparent),transparent 72%),repeating-linear-gradient(180deg,#050a0e 0 3px,#070d12 3px 6px)}
+.rack[data-layout=console] .pod-clamp{width:52px;height:5px;border-radius:0}
+
+/* A column with a lit core down the middle and its bays branching off it. */
+.rack[data-layout=brain] .rack-shelf{position:relative;grid-template-columns:minmax(0,1fr) 78px minmax(0,1fr);gap:16px 0}
+.rack[data-layout=brain] .rack-shelf::before{position:absolute;top:14px;bottom:14px;left:50%;width:26px;transform:translateX(-50%);border-radius:16px;background:linear-gradient(180deg,rgba(75,230,200,.16),rgba(122,166,255,.14));box-shadow:inset 0 0 0 1px rgba(190,230,255,.16),0 0 44px -8px rgba(75,230,200,.6);content:""}
+.rack[data-layout=brain] .rack-shelf::after{position:absolute;top:26px;bottom:26px;left:50%;width:3px;transform:translateX(-50%);border-radius:3px;background:linear-gradient(180deg,#4be6c8,#7aa6ff,#a87fff);opacity:.75;content:""}
+.rack[data-layout=brain] .pod{grid-column:1}
+.rack[data-layout=brain] .pod:nth-child(even){grid-column:3}
+.rack[data-layout=brain] .pod::after{position:absolute;top:50%;width:26px;height:2px;background:var(--tone);box-shadow:0 0 9px var(--tone);content:""}
+.rack[data-layout=brain] .pod:nth-child(odd)::after{right:-26px}
+.rack[data-layout=brain] .pod:nth-child(even)::after{left:-26px}
+.rack[data-layout=brain] .pod-clamp{display:none}
+.rack[data-layout=brain] .rack-cables{display:none}
+@media(max-width:700px){.rack[data-layout=brain] .rack-shelf{grid-template-columns:minmax(0,1fr)}.rack[data-layout=brain] .pod,.rack[data-layout=brain] .pod:nth-child(even){grid-column:1}.rack[data-layout=brain] .pod::after,.rack[data-layout=brain] .rack-shelf::before,.rack[data-layout=brain] .rack-shelf::after{display:none}.rack[data-layout=board] .pod{grid-template-columns:minmax(0,1fr);grid-template-areas:"slot" "glyph" "body"}.rack[data-layout=board] .pod header{margin-bottom:0}.rack[data-layout=board] .pod-meta{margin-top:0}}

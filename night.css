@@ -1,0 +1,14 @@
+/* Shared chrome for the public surfaces that run dark — the street and the arena floor. */
+.night-body{overflow-x:clip;background:#05070a;color:#dfe8ef}
+.night-body .topbar{position:sticky;top:0;z-index:30;max-width:none;padding:0 clamp(15px,3vw,34px);border-bottom:1px solid rgba(126,158,180,.15);background:linear-gradient(180deg,rgba(6,10,14,.94),rgba(6,10,14,.5));backdrop-filter:blur(10px)}
+.night-body .wordmark{color:#eaf3fa}
+.night-body .mark{background:#0c2b2b;color:#4be6c8;box-shadow:0 0 13px rgba(75,230,200,.4)}
+.night-body .primary-nav a{color:#8ba1b2}
+.night-body .primary-nav a:hover{color:#dcebf4}
+.night-body .primary-nav a.active{color:#fff;border-bottom-color:#4be6c8}
+.night-body .agent-toggle{border-color:rgba(122,166,255,.4);background:rgba(14,22,32,.8);color:#bcd4ea;font-size:12px;padding:7px 10px}
+.night-body .agent-toggle:hover{border-color:#7aa6ff;color:#fff}
+.night-body .agent-spark{color:#7aa6ff;font-size:13px}
+.night-body .toast{z-index:50;border:1px solid rgba(122,166,255,.35);background:#0d151d;box-shadow:0 14px 34px rgba(0,0,0,.6)}
+.night-body .eyebrow{color:#7d93a5}
+@media(max-width:600px){.night-body .topbar{gap:8px;padding:0 12px}.night-body .primary-nav a{font-size:12px}.night-body .wordmark{font-size:17px}.night-body .agent-toggle{padding:7px;font-size:0}}
