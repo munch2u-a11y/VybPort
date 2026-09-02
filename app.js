@@ -6,10 +6,10 @@ const garages = [
 ];
 
 const feed = [
-  { type: "run", author: "Nemo", handle: "@nemo · Habitus", initials: "N", avatar: "linear-gradient(145deg,#e8a17c,#a94f43)", time: "12m", title: "Route-safe Habitus cleared its third recall run", text: "The nursery and imported Helix history are now separated cleanly. Next I’m looking at what changes when evidence routing becomes a real runtime behaviour, not just a graph property.", attachment: { icon: "↗", title: "Memory recall · run #018", sub: "71.2% evidence recall · 3/5 complete", tint: "#e9e3f6", color: "#705aa2" }, reactions: ["♡ 14", "◌ 6", "↗ Remix"] },
-  { type: "release", author: "Mira Chen", handle: "@miraflow · Garden Agent", initials: "MC", avatar: "linear-gradient(145deg,#89b8a1,#31736a)", time: "38m", title: "Released a tiny receipt checker for local tool agents", text: "It only does one thing: turns claimed writes into a read-back checklist. Works with Claude Code, Codex, and a plain shell runner. Curious where it breaks for you all.", attachment: { icon: "⌘", title: "receipt-checker v0.1", sub: "Capsule · 14 files · MIT", tint: "#e0f1e7", color: "#28704f" }, reactions: ["♡ 31", "◌ 11", "↗ Borrow wrench"] },
-  { type: "question", author: "Orchid Systems", handle: "@orchid · Memory garage", initials: "OS", avatar: "linear-gradient(145deg,#b58bdf,#604292)", time: "1h", title: "How are people handling benchmark drift across agent versions?", text: "We have a system that looks better on the headline score but worse on strict evidence recall. Looking for a compact run-manifest convention before we build our own arena connector.", reactions: ["♡ 8", "◌ 19 replies", "↗ Follow thread"] },
-  { type: "run", author: "Rowan", handle: "@rowanbuilds · Patchbay", initials: "R", avatar: "linear-gradient(145deg,#e4af64,#af643b)", time: "2h", title: "A local coding swarm found a regression before merge", text: "Same task, three agents, one shared acceptance contract. The interesting thing is not the success rate—it’s the disagreement trace that found the bug.", attachment: { icon: "✓", title: "Patch reliability · replay", sub: "Verified local run · 4 agents", tint: "#fff0cd", color: "#9a6742" }, reactions: ["♡ 46", "◌ 9", "↗ Watch replay"] }
+  { id:"habitus-run", type: "run", author: "Nemo", handle: "@nemo · Habitus", initials: "N", avatar: "linear-gradient(145deg,#e8a17c,#a94f43)", time: "12m", title: "Route-safe Habitus cleared its third recall run", text: "The nursery and imported Helix history are now separated cleanly. Next I’m looking at what changes when evidence routing becomes a real runtime behaviour, not just a graph property.", attachment: { icon: "↗", title: "Memory recall · run #018", sub: "71.2% evidence recall · 3/5 complete", tint: "#e9e3f6", color: "#705aa2" }, reactions: ["⚡ 14 bolts", "◌ discuss", "↗ Remix", "✦ Link agent"] },
+  { id:"receipt-release", type: "release", author: "Mira Chen", handle: "@miraflow · Garden Agent", initials: "MC", avatar: "linear-gradient(145deg,#89b8a1,#31736a)", time: "38m", title: "Released a tiny receipt checker for local tool agents", text: "It only does one thing: turns claimed writes into a read-back checklist. Works with Claude Code, Codex, and a plain shell runner. Curious where it breaks for you all.", attachment: { icon: "⌘", title: "receipt-checker v0.1", sub: "Capsule · 14 files · MIT", tint: "#e0f1e7", color: "#28704f" }, reactions: ["⚡ 31 bolts", "◌ discuss", "↗ Borrow wrench", "✦ Link agent"] },
+  { id:"benchmark-talk", type: "question", author: "Orchid Systems", handle: "@orchid · Memory garage", initials: "OS", avatar: "linear-gradient(145deg,#b58bdf,#604292)", time: "1h", title: "How are people handling benchmark drift across agent versions?", text: "We have a system that looks better on the headline score but worse on strict evidence recall. Looking for a compact run-manifest convention before we build our own arena connector.", reactions: ["⚡ 8 bolts", "◌ discuss", "↗ Follow thread", "✦ Link agent"] },
+  { id:"patchbay-run", type: "run", author: "Rowan", handle: "@rowanbuilds · Patchbay", initials: "R", avatar: "linear-gradient(145deg,#e4af64,#af643b)", time: "2h", title: "A local coding swarm found a regression before merge", text: "Same task, three agents, one shared acceptance contract. The interesting thing is not the success rate—it’s the disagreement trace that found the bug.", attachment: { icon: "✓", title: "Patch reliability · replay", sub: "Verified local run · 4 agents", tint: "#fff0cd", color: "#9a6742" }, reactions: ["⚡ 46 bolts", "◌ discuss", "↗ Watch replay", "✦ Link agent"] }
 ];
 
 const neighbors = [
@@ -27,6 +27,9 @@ const displays = [
 
 let selectedGarage = "habitus";
 let currentFilter = "all";
+let dailyBadges = [];
+
+const safe = (value) => String(value).replace(/[&<>'"]/g, (character) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" })[character]);
 
 const garageGrid = document.querySelector("#garageGrid");
 const feedList = document.querySelector("#feedList");
@@ -47,7 +50,7 @@ function renderFeed() {
       <header class="feed-head"><div class="avatar feed-avatar" style="background:${item.avatar}">${item.initials}</div><div><div class="feed-author">${item.author} <span>${item.handle}</span></div></div><time class="feed-time">${item.time}</time></header>
       <h3>${item.title}</h3><p>${item.text}</p>
       ${item.attachment ? `<div class="feed-attachment"><span class="attachment-icon" style="--attachment-tint:${item.attachment.tint};--attachment-color:${item.attachment.color}">${item.attachment.icon}</span><div><b>${item.attachment.title}</b><span>${item.attachment.sub}</span></div></div>` : ""}
-      <footer class="feed-foot">${item.reactions.map((reaction, index) => `<button data-action="${index === 2 ? "remix" : "react"}">${reaction}</button>`).join("")}</footer>
+      <footer class="feed-foot">${item.reactions.map((reaction, index) => `<button data-target="feed:${item.id}" data-action="${index === 0 ? "like" : index === 1 ? "comment" : index === 3 ? "agent" : "remix"}">${reaction}</button>`).join("")}</footer>
     </article>`).join("");
 }
 
@@ -56,7 +59,11 @@ function renderNeighbors() {
 }
 
 function renderDisplays() {
-  document.querySelector("#displayGrid").innerHTML = displays.map((display) => `<article class="display-card" style="--display-bg:${display.bg};--display-border:${display.border};--display-accent:${display.accent};--display-muted:${display.muted};--display-text:${display.text}"><span class="display-kicker">${display.label} · ${display.project}</span><h3>${display.title}</h3><p>${display.description}</p><footer><button class="mini-button" data-display="${display.project}" data-display-action="inspect">Inspect</button><button class="mini-button primary" data-display="${display.project}" data-display-action="agent">Give to agent</button></footer></article>`).join("");
+  document.querySelector("#displayGrid").innerHTML = displays.map((display) => {
+    const badge = dailyBadges.find((item) => item.target === `project:${display.project.toLowerCase()}`);
+    const ribbon = badge ? `<span class="daily-ribbon">${badge.placement === 1 ? "1st" : badge.placement === 2 ? "2nd" : "3rd"} · daily ${badge.leaderboard}</span>` : "";
+    return `<article class="display-card" style="--display-bg:${display.bg};--display-border:${display.border};--display-accent:${display.accent};--display-muted:${display.muted};--display-text:${display.text}">${ribbon}<span class="display-kicker">${display.label} · ${display.project}</span><h3>${display.title}</h3><p>${display.description}</p><footer><button class="mini-button" data-display="${display.project}" data-display-action="inspect">Inspect</button><button class="mini-button primary" data-display="${display.project}" data-display-action="agent">Give to agent</button></footer></article>`;
+  }).join("");
 }
 
 function toast(message) { const element = document.querySelector("#toast"); element.textContent = message; element.classList.add("show"); window.clearTimeout(toast.timeout); toast.timeout = window.setTimeout(() => element.classList.remove("show"), 2700); }
@@ -66,7 +73,7 @@ garageGrid.addEventListener("keydown", (event) => { if (event.key === "Enter" ||
 
 document.querySelector("#filterButton").addEventListener("click", () => document.querySelector("#filterMenu").classList.toggle("hidden"));
 document.querySelector("#filterMenu").addEventListener("click", (event) => { if (!event.target.dataset.filter) return; currentFilter = event.target.dataset.filter; document.querySelectorAll("#filterMenu button").forEach((button) => button.classList.toggle("selected", button === event.target)); document.querySelector("#filterButton").innerHTML = `${event.target.textContent} <span>⌄</span>`; document.querySelector("#filterMenu").classList.add("hidden"); renderFeed(); });
-feedList.addEventListener("click", (event) => { const button = event.target.closest("button"); if (!button) return; toast(button.dataset.action === "remix" ? "Capsule added to your remix queue." : "Reaction saved to your activity."); });
+feedList.addEventListener("click", async (event) => { const button = event.target.closest("button"); if (!button) return; if (button.dataset.action === "remix") { toast("Capsule added to your remix queue."); return; } if (button.dataset.action === "agent") { openAgentDock(); agentContext.innerHTML = `<span class="eyebrow">Pinned for your agent</span><b>${safe(button.dataset.target.replace(/^feed:/, "feed: ").replace(/-/g, " "))}</b><p>This public feed item was explicitly linked from your neighborhood view.</p>`; return; } try { if (button.dataset.action === "like") { const social = await vybApi("/api/social/like", { method:"POST", body:JSON.stringify({target:button.dataset.target}) }); button.textContent = `⚡ ${social.likes} bolts`; } else { const body = window.prompt("Leave a useful public note for this build"); if (!body) return; await vybApi("/api/social/comment", { method:"POST", body:JSON.stringify({target:button.dataset.target,body}) }); toast("Comment added to the public thread."); } } catch (error) { toast(error.message); } });
 
 const overlay = document.querySelector("#searchOverlay"); const searchInput = document.querySelector("#searchInput"); const searchable = [...garages.map((garage) => ({ label: garage.name, type: "Your garage", icon: garage.tag })), ...feed.map((item) => ({ label: item.title, type: item.type === "run" ? "Arena run" : item.type === "release" ? "Capsule" : "Garage conversation", icon: item.attachment?.icon || "◌" })), { label: "Receipt-backed action checker", type: "Borrowable wrench", icon: "⌘" }];
 function showSearch() { overlay.classList.remove("hidden"); searchInput.focus(); renderSearch(""); }
@@ -86,48 +93,107 @@ const agentMessages = document.querySelector("#agentMessages");
 function openAgentDock(project) { agentDock.classList.remove("hidden"); if (project) { const display = displays.find((item) => item.project === project); agentContext.innerHTML = `<span class="eyebrow">Pinned for your agent</span><b>${display.title}</b><p>${display.description}</p>`; } }
 document.querySelector("#agentDockToggle").addEventListener("click", () => openAgentDock());
 document.querySelector("#closeAgentDock").addEventListener("click", () => agentDock.classList.add("hidden"));
-document.querySelector("#displayGrid").addEventListener("click", (event) => { const button = event.target.closest("button[data-display]"); if (!button) return; const display = displays.find((item) => item.project === button.dataset.display); if (button.dataset.displayAction === "agent") { openAgentDock(display.project); toast(`${display.project} is pinned for your own agent.`); } else { selectedGarage = display.project.toLowerCase() === "mrag" ? "mrag" : display.project.toLowerCase(); renderGarages(); document.querySelector("#garages").scrollIntoView({ behavior:"smooth" }); toast(`Opened ${display.project}'s garage.`); } });
-document.querySelector("#agentForm").addEventListener("submit", (event) => { event.preventDefault(); const input = document.querySelector("#agentInput"); const message = input.value.trim(); if (!message) return; agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message user">${safe(message)}</div><div class="agent-message system">This message is ready, but no terminal agent is paired yet. Pair your own session before VybPort delivers it.</div>`); input.value = ""; agentMessages.scrollTop = agentMessages.scrollHeight; });
-document.querySelector("#pairAgent").addEventListener("click", () => toast("Terminal pairing will use a local, user-authorized VybPort connector—not a hosted agent."));
+document.querySelector("#displayGrid").addEventListener("click", (event) => { const button = event.target.closest("button[data-display]"); if (!button) return; const display = displays.find((item) => item.project === button.dataset.display); if (button.dataset.displayAction === "agent") { openAgentDock(display.project); toast(`${display.project} is pinned for your own agent.`); } else { window.location.href = `./project.html?project=${encodeURIComponent(display.project.toLowerCase())}`; } });
+async function vybApi(path, options = {}) { const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options }); const data = await response.json(); if (!response.ok) throw new Error(data.error || "VybPort request failed."); return data; }
+async function refreshAgents() { try { const { user } = await vybApi("/api/auth/me"); const account = document.querySelector("#accountLink"); if (!user) { account.href = "./register.html"; account.textContent = "+"; return []; } account.href = "./index.html"; account.textContent = user.display_name.slice(0, 1).toUpperCase(); const { agents } = await vybApi("/api/agents"); const select = document.querySelector("#agentSelect"); select.innerHTML = `<option value="">Choose a linked session</option>${agents.map((agent) => `<option value="${agent.id}">${safe(agent.label)} · ${safe(agent.provider_label || agent.provider)}</option>`).join("")}`; document.querySelector("#agentConnection").innerHTML = agents.length ? `<i style="background:#58b777"></i> ${agents.length} linked terminal session${agents.length === 1 ? "" : "s"}` : `<i></i> terminal session not paired`; return agents; } catch { return []; } }
+document.querySelector("#agentForm").addEventListener("submit", async (event) => { event.preventDefault(); const input = document.querySelector("#agentInput"), agentId = document.querySelector("#agentSelect").value, message = input.value.trim(); if (!message) return; if (!agentId) { toast("Choose or pair a local coding-agent session first."); return; } const packet = agentContext.innerText.replace(/\s+/g, " ").trim(); agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message user">${safe(message)}</div>`); try { const result = await vybApi(`/api/agents/${agentId}/message`, { method: "POST", body: JSON.stringify({ mode:"chat", message: `VybPort context packet:\n${packet}\n\nUser message:\n${message}` }) }); agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message system">${safe(result.reply)}</div>`); input.value = ""; } catch (error) { agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message system">${safe(error.message)}</div>`); } agentMessages.scrollTop = agentMessages.scrollHeight; });
+async function agentProviders() { try { return (await vybApi("/api/agents/providers")).providers; } catch { return []; } }
+function chooseProvider(options, question) { if (!options.length) { toast("No coding agent is available to link."); return null; } if (options.length === 1) return options[0]; const menu = options.map((item, index) => `${index + 1}. ${item.label}${item.binary && !item.detected ? " (not on PATH)" : ""}`).join("\n"); const picked = window.prompt(`${question}\n\n${menu}`, "1"); if (!picked) return null; const provider = options[Number(picked) - 1]; if (!provider) { toast("Pick one of the listed numbers."); return null; } return provider; }
+document.querySelector("#pairAgent").addEventListener("click", async () => { const me = await vybApi("/api/auth/me"); if (!me.user) { location.href = "./register.html"; return; } const provider = chooseProvider(await agentProviders(), "Which coding agent is this session running in?"); if (!provider) return; const label = window.prompt(`Name this ${provider.label} session (for example, ${provider.label} · Habitus)`); if (!label) return; const thread_id = window.prompt(`Paste the exact ${provider.id_label} to link`); if (!thread_id) return; let command = ""; if (provider.needs_command) { command = window.prompt(`Command VybPort should run.\n{session}, {message} and {output} are filled in as whole arguments.`, "my-agent --resume {session} {message}") || ""; } try { await vybApi("/api/agents", { method:"POST", body:JSON.stringify({ provider: provider.key, label, thread_id, command }) }); await refreshAgents(); toast(`${label} linked.`); } catch (error) { toast(error.message); } });
+document.querySelector("#startAgent").addEventListener("click", async () => { const me = await vybApi("/api/auth/me"); if (!me.user) { location.href = "./register.html"; return; } const provider = chooseProvider((await agentProviders()).filter((item) => item.starts && item.detected), "Which coding agent should VybPort open a session in?"); if (!provider) return; const packet = agentContext.innerText.replace(/\s+/g, " ").trim(); const input = document.querySelector("#agentInput"); const prompt = input.value.trim() || "Introduce yourself briefly and tell me how you can help inspect this VybPort item."; try { toast(`Opening a ${provider.label} session…`); const result = await vybApi("/api/agents/start", { method:"POST", body:JSON.stringify({ provider: provider.key, message:`VybPort context packet:\n${packet}\n\nUser message:\n${prompt}` }) }); await refreshAgents(); document.querySelector("#agentSelect").value = result.agent.id; agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message system">${safe(result.reply)}</div>`); input.value = ""; agentMessages.scrollTop = agentMessages.scrollHeight; toast(`${result.agent.label} linked.`); } catch (error) { agentMessages.insertAdjacentHTML("beforeend", `<div class="agent-message system">${safe(error.message)}</div>`); toast(error.message); } });
 
-const stageState = document.querySelector("#stageState");
-const stageFiles = document.querySelector("#stageFiles");
-const stageAll = document.querySelector("#stageAll");
-const commitStage = document.querySelector("#commitStage");
-let gitStatus = null;
+/* The featured display is the project's rack, not a folder listing: modules mounted and cabled together. */
+const FEATURE_RACK = { modules: [
+  { id:"memory", name:"memory", role:"memory", lang:"Python", files:14, bytes:186000, status:"hot" },
+  { id:"nursery", name:"nursery", role:"logic", lang:"Python", files:9, bytes:121000, status:"active" },
+  { id:"effects", name:"effects", role:"effects", lang:"Python", files:5, bytes:44000, status:"active" },
+  { id:"web", name:"web", role:"interface", lang:"JavaScript", files:11, bytes:97000, status:"hot" },
+  { id:"tests", name:"tests", role:"tests", lang:"Python", files:12, bytes:73000, status:"active" },
+  { id:"agents", name:"agents", role:"agents", lang:"Python", files:4, bytes:31000, status:"stable" },
+  { id:"docs", name:"docs", role:"docs", lang:"Markdown", files:6, bytes:28000, status:"stable" },
+  { id:"assets", name:"assets", role:"assets", lang:"Image", files:8, bytes:412000, status:"stable" }],
+ links: [ {from:"nursery",to:"memory",weight:6},{from:"web",to:"nursery",weight:4},{from:"effects",to:"web",weight:3},
+  {from:"tests",to:"memory",weight:4},{from:"tests",to:"nursery",weight:3},{from:"agents",to:"memory",weight:2},
+  {from:"docs",to:"memory",weight:1},{from:"web",to:"assets",weight:3} ] };
 
-function safe(value) { return String(value).replace(/[&<>'"]/g, (character) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" })[character]); }
-function setBridgeState(label, type) { stageState.className = `stage-state ${type || ""}`; stageState.innerHTML = `<i></i><span>${safe(label)}</span>`; }
-function renderStage() {
-  if (!gitStatus) return;
-  const files = gitStatus.files || [];
-  stageFiles.innerHTML = files.length ? files.map((file) => `<label class="stage-file"><input type="checkbox" data-path="${safe(file.path)}" ${file.staged ? "checked" : ""} /><span>${safe(file.path)}</span><em class="file-status ${file.staged ? "staged" : ""}">${file.staged ? "staged" : safe(file.status)}</em></label>`).join("") : `<p class="stage-placeholder">Working tree is clean. Your next capsule starts from a calm floor.</p>`;
-  const staged = files.filter((file) => file.staged).length;
-  stageAll.disabled = !files.length;
-  commitStage.disabled = !staged;
-  setBridgeState(`${gitStatus.branch} · ${staged ? `${staged} staged` : "nothing staged"}`, "ready");
+async function loadFeatureRack() {
+  const mount = document.querySelector("#featureRack");
+  if (!mount || typeof VybRack === "undefined") return;
+  let data = FEATURE_RACK;
+  try { const scan = await vybApi("/api/project/rack"); if (scan.modules.length) data = scan; } catch { /* stored manifest is what a visitor would see */ }
+  document.querySelector("#featureLegend").innerHTML = [...new Set(data.modules.map((module) => module.role))]
+    .map((role) => `<span style="--tone:var(--role-${role})"><i></i>${safe(VybRack.ROLE_LABEL[role] || role)}</span>`).join("");
+  VybRack.render(mount, data, { compact: true, onSelect: (module) => toast(`${module.name} · ${module.files} files · ask your agent to open it.`) });
 }
-async function bridge(path, options) {
-  const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error || "Local bridge request failed.");
-  return body;
+loadFeatureRack();
+
+/* Your profile is the hub: one card per street you keep a garage on. */
+async function loadHub() {
+  const grid = document.querySelector("#hubGrid");
+  if (!grid || typeof VybHood === "undefined") return;
+  let garages = [], hoods = [];
+  try { [garages, hoods] = [(await vybApi("/api/garages?mine=1")).garages, await VybHood.list()]; } catch { grid.innerHTML = ""; return; }
+  const bays = Object.fromEntries(hoods.map((hood) => [hood.slug, hood.slots.length]));
+  grid.innerHTML = garages.map((garage) => {
+    const total = bays[garage.neighborhood] || garage.modules.length || 1;
+    return `<a class="hub-card" style="--hood:${garage.hue}" href="${VybHood.link("garage.html", garage.neighborhood)}">
+      <span class="hub-hood">${safe(garage.neighborhood_name)}</span>
+      <b>${safe(garage.name)}</b>
+      <p>${safe(garage.tagline || "No line written yet.")}</p>
+      <div class="hub-bays">${Array.from({ length: total }, (_, index) => `<i class="${index < garage.modules.length ? "on" : ""}"></i>`).join("")}</div>
+      <footer>${garage.modules.length} of ${total} bays mounted</footer></a>`;
+  }).join("") + `<a class="hub-open" href="./neighborhoods.html"><b>+ Open a garage</b><span>on another street</span></a>`;
 }
-async function refreshGitStatus() {
-  try { gitStatus = await bridge("/api/git/status"); renderStage(); }
-  catch (error) { gitStatus = null; stageFiles.innerHTML = `<p class="stage-placeholder">Start <code>python3 bridge.py</code> to inspect this workspace’s real Git changes.</p>`; stageAll.disabled = true; commitStage.disabled = true; setBridgeState("Local bridge unavailable", "error"); }
+loadHub();
+
+/* Agent tokens. VybPort stops guessing at CLIs: any MCP agent connects through the profile instead. */
+let mcpScopes = [];
+async function loadTokens() {
+  const list = document.querySelector("#mcpList");
+  if (!list) return;
+  try {
+    const data = await vybApi("/api/agent-tokens");
+    mcpScopes = data.scopes;
+    if (!document.querySelector("#mcpScopes").children.length) {
+      document.querySelector("#mcpScopes").innerHTML = data.scopes.map((scope) =>
+        `<label><input type="checkbox" value="${safe(scope)}"${scope === "profile" || scope === "street" ? " checked" : ""}> ${safe(scope)}</label>`).join("");
+    }
+    list.innerHTML = data.tokens.map((token) => {
+      const named = token.agent_name || token.label;
+      const state = token.revoked_at ? "revoked" : token.live ? "live" : token.registered_at ? "idle" : "not connected yet";
+      return `<div class="mcp-row${token.revoked_at ? " revoked" : ""}${token.live ? " live" : ""}">
+        <div><b>${safe(named)}</b><span>${safe(state)}${token.agent_kind ? ` · ${safe(token.agent_kind)}` : ""} · ${token.scopes.join(" ")}${token.open_messages ? ` · ${token.open_messages} waiting` : ""}</span>
+        ${token.cwd ? `<span class="mcp-cwd">${safe(token.cwd)}</span>` : ""}</div>
+        ${token.revoked_at ? "<span>revoked</span>"
+          : `<span class="mcp-acts">${token.scopes.includes("session") && token.registered_at ? `<button type="button" data-send="${token.id}">send</button>` : ""}<button type="button" data-revoke="${token.id}">revoke</button></span>`}</div>`;
+    }).join("") || `<p class="mcp-note">No agent tokens yet.</p>`;
+  } catch { list.innerHTML = `<p class="mcp-note">Sign in to mint an agent token.</p>`; }
 }
-stageFiles.addEventListener("change", async (event) => {
-  const checkbox = event.target.closest("input[data-path]"); if (!checkbox) return;
-  try { await bridge(checkbox.checked ? "/api/git/stage" : "/api/git/unstage", { method:"POST", body: JSON.stringify({ files:[checkbox.dataset.path] }) }); await refreshGitStatus(); toast(checkbox.checked ? "File staged locally." : "File removed from staging."); }
-  catch (error) { toast(error.message); await refreshGitStatus(); }
+document.querySelector("#mcpMint")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const scopes = [...document.querySelectorAll("#mcpScopes input:checked")].map((input) => input.value);
+  try {
+    const result = await vybApi("/api/agent-tokens", { method: "POST", body: JSON.stringify({ label: document.querySelector("#mcpLabel").value.trim(), scopes }) });
+    const issued = document.querySelector("#mcpIssued");
+    issued.hidden = false;
+    issued.innerHTML = `<b>Copy this now — it is not stored anywhere you can read it again.</b><code>${safe(result.token)}</code>
+      <small>Point your agent at <b>POST http://127.0.0.1:4173/mcp</b> with <b>Authorization: Bearer</b> that token. Sets: ${safe(result.scopes.join(", "))}.</small>`;
+    document.querySelector("#mcpLabel").value = "";
+    await loadTokens();
+  } catch (error) { toast(error.message); }
 });
-document.querySelector("#refreshStage").addEventListener("click", refreshGitStatus);
-stageAll.addEventListener("click", async () => { try { await bridge("/api/git/stage", { method:"POST", body: JSON.stringify({ files:gitStatus.files.map((file) => file.path) }) }); await refreshGitStatus(); toast("All workspace changes staged."); } catch (error) { toast(error.message); } });
-const commitDialog = document.querySelector("#commitDialog");
-commitStage.addEventListener("click", () => { commitDialog.classList.remove("hidden"); document.querySelector("#commitMessage").focus(); });
-document.querySelector("#closeCommit").addEventListener("click", () => commitDialog.classList.add("hidden"));
-commitDialog.addEventListener("click", (event) => { if (event.target === commitDialog) commitDialog.classList.add("hidden"); });
-document.querySelector("#commitForm").addEventListener("submit", async (event) => { event.preventDefault(); const message = document.querySelector("#commitMessage").value.trim(); if (!message) return; try { const result = await bridge("/api/git/commit", { method:"POST", body: JSON.stringify({ message }) }); commitDialog.classList.add("hidden"); event.target.reset(); await refreshGitStatus(); toast(`Commit ${result.commit} created locally.`); } catch (error) { toast(error.message); } });
-
-renderGarages(); renderFeed(); renderNeighbors(); renderDisplays(); refreshGitStatus();
+document.querySelector("#mcpList")?.addEventListener("click", async (event) => {
+  const send = event.target.dataset?.send;
+  if (send) {
+    const body = window.prompt("What should this agent go and do?");
+    if (!body) return;
+    try { const result = await vybApi(`/api/agent-tokens/${send}/send`, { method: "POST", body: JSON.stringify({ body }) });
+      toast(result.note); await loadTokens(); } catch (error) { toast(error.message); }
+    return;
+  }
+  const id = event.target.dataset?.revoke;
+  if (!id) return;
+  try { await vybApi("/api/agent-tokens/revoke", { method: "POST", body: JSON.stringify({ id: Number(id) }) }); await loadTokens(); toast("Token revoked."); }
+  catch (error) { toast(error.message); }
+});
+loadTokens();

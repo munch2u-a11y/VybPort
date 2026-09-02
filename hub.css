@@ -1,0 +1,46 @@
+/* The profile hub: your garages across every street you build on. */
+.street-hub{max-width:1184px;margin:32px auto 0}
+.street-hub .section-heading p{max-width:560px;margin:6px 0 0;color:var(--muted);font-size:12.5px;line-height:1.5}
+.hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.hub-card{--tone:hsl(var(--hood) 80% 45%);display:grid;gap:7px;padding:16px;border:1px solid #dbe2dd;border-left:4px solid var(--tone);border-radius:12px;background:#fffefb;text-decoration:none;color:var(--ink);transition:transform .16s,box-shadow .16s}
+.hub-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.hub-card .hub-hood{color:var(--tone);font-family:"DM Mono";font-size:10px;text-transform:uppercase;letter-spacing:1.1px}
+.hub-card b{font-family:Outfit,sans-serif;font-size:19px;letter-spacing:-.4px}
+.hub-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.4}
+.hub-bays{display:flex;gap:3px;margin-top:4px}
+.hub-bays i{flex:1;height:5px;border-radius:2px;background:#e3e9e4}
+.hub-bays i.on{background:var(--tone)}
+.hub-card footer{color:var(--muted);font-family:"DM Mono";font-size:10px}
+.hub-open{display:grid;place-content:center;gap:5px;min-height:130px;padding:16px;border:1px dashed #c3cec6;border-radius:12px;background:transparent;color:#4a6555;text-align:center;text-decoration:none}
+.hub-open:hover{border-color:var(--green);color:var(--green)}
+.hub-open b{font-family:Outfit,sans-serif;font-size:15px}
+.hub-open span{font-family:"DM Mono";font-size:10.5px}
+
+/* Agent tokens: any MCP-speaking agent works through the profile with the sets you tick. */
+.agent-mcp{padding:12px 14px;border-bottom:1px solid var(--line)}
+.mcp-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.mcp-note{margin:6px 0 9px;color:var(--muted);font-size:11px;line-height:1.5}
+.mcp-note code{padding:1px 4px;border-radius:4px;background:#eef2ee;font-family:"DM Mono";font-size:10.5px}
+.mcp-scopes{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px}
+.mcp-scopes label{display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:99px;padding:4px 9px;background:#fffefb;color:#54635b;font-family:"DM Mono";font-size:10px;cursor:pointer}
+.mcp-scopes label:has(:checked){border-color:var(--green);background:#e8f2eb;color:var(--green)}
+.mcp-scopes input{accent-color:var(--green)}
+.mcp-mint{display:flex;gap:6px}
+.mcp-mint input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fffefb;font-family:"DM Mono";font-size:11px}
+.mcp-mint .button{padding:7px 12px;font-size:12px}
+.mcp-issued{margin-top:9px;padding:9px 11px;border:1px solid #b9d8c4;border-radius:8px;background:#eaf6ef}
+.mcp-issued[hidden]{display:none}
+.mcp-issued b{display:block;color:#1d5c3d;font-size:11px}
+.mcp-issued code{display:block;margin:5px 0;padding:7px;border-radius:6px;background:#0d1a13;color:#8ff3de;font-family:"DM Mono";font-size:10.5px;word-break:break-all}
+.mcp-issued small{color:#4c7059;font-size:10px;line-height:1.45}
+.mcp-list{display:grid;gap:4px;margin-top:9px}
+.mcp-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:#fffefb}
+.mcp-row b{display:block;font-size:11.5px}
+.mcp-row span{color:var(--muted);font-family:"DM Mono";font-size:9.5px}
+.mcp-row.revoked{opacity:.5}
+.mcp-row button{border:0;background:none;padding:0;color:#b1493f;font-family:"DM Mono";font-size:10px}
+.mcp-row.live{border-color:#8ecfae;background:#f3fbf6}
+.mcp-row.live b::before{content:"● ";color:#2fb86b}
+.mcp-cwd{display:block;color:#8a978f;font-family:"DM Mono";font-size:9px;word-break:break-all}
+.mcp-acts{display:flex;gap:8px;align-items:center}
+.mcp-acts button[data-send]{color:#246348}

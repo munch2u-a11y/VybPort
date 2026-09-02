@@ -1,0 +1,198 @@
+/* Your garage on one street. Dark chrome comes from night.css, the bay rack from rack.css. */
+.garage-page{position:relative;max-width:1120px;margin:0 auto;padding:22px clamp(14px,3vw,28px) 80px}
+.garage-page::before{position:fixed;z-index:-1;inset:0;background:radial-gradient(110% 60% at 20% -8%,rgba(30,64,74,.5),transparent 58%),#05070a;content:""}
+.garage-page .section-heading{align-items:start}
+.garage-page h2{margin:5px 0 0;color:#eef6fb;font:600 20px Outfit,sans-serif}
+.garage-page .section-heading p{max-width:520px;margin:6px 0 0;color:#93a9ba;font-size:12px;line-height:1.5}
+.garage-page .button.ghost{border-color:rgba(122,166,255,.4);background:rgba(13,21,30,.85);color:#bcd4ea}
+.garage-page .button.ghost:hover{border-color:#7aa6ff;color:#fff}
+.garage-page .button.solid{background:#12564a;color:#b7f6e6}
+.garage-page .button.solid:hover{background:#17705f}
+.garage-page .text-button{color:#7aa6ff;font-size:12px}
+
+/* Which street am I on, and which of my garages is this. */
+.garage-head{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:22px;padding:22px clamp(16px,2.4vw,26px);border:1px solid rgba(130,162,184,.22);border-radius:14px;background:linear-gradient(160deg,rgba(13,22,30,.92),rgba(7,11,16,.95))}
+.garage-head h1{margin:12px 0 6px;color:#f2fbff;font:700 clamp(25px,3.2vw,34px)/1.05 Outfit,sans-serif;letter-spacing:-1px}
+.garage-head>.garage-identity>p{max-width:560px;margin:0;color:#a9c0cf;font-size:13px;line-height:1.55}
+.garage-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px}
+.garage-tags span{border:1px solid rgba(75,230,200,.32);border-radius:99px;padding:4px 9px;color:#8ff3de;font:10px "DM Mono"}
+.hood-switch{display:grid;gap:5px}
+.hood-switch .hood-pick{display:flex;flex-wrap:wrap;align-items:center;gap:9px}
+.hood-switch select{border:1px solid hsl(var(--hood,200) 70% 60% / .45);border-radius:8px;padding:7px 9px;background:#070c11;color:#e7f2fa;font:12px "DM Mono"}
+.hood-switch select:focus{outline:0;border-color:hsl(var(--hood,200) 90% 62%)}
+.hood-all{color:hsl(var(--hood,200) 80% 70%);font:10px "DM Mono";text-decoration:none}
+.hood-all:hover{color:#fff}
+.hood-tagline{margin:2px 0 0;color:#7d93a5;font-size:11px}
+.hood-offline{color:#7d93a5;font:10px "DM Mono"}
+.garage-jump{display:grid;align-content:start;gap:7px;padding-left:20px;border-left:1px solid rgba(130,162,184,.18)}
+.garage-jump>div{display:grid;gap:5px}
+.garage-jump a{display:grid;gap:1px;padding:9px 11px;border:1px solid hsl(var(--hood,200) 60% 55% / .34);border-radius:8px;background:rgba(9,14,20,.8);text-decoration:none}
+.garage-jump a:hover{border-color:hsl(var(--hood,200) 85% 62%);box-shadow:0 0 20px -8px hsl(var(--hood,200) 85% 62%)}
+.garage-jump a.here{background:hsl(var(--hood,200) 45% 16% / .8)}
+.garage-jump b{color:#e8f2fa;font:600 13px Outfit,sans-serif}
+.garage-jump span{color:#8ba1b2;font:10px "DM Mono"}
+.jump-empty{margin:0;color:#7d93a5;font-size:11px}
+
+/* Sections */
+.bay-board,.bay-editor,.open-garage,.stage-zone{margin-top:20px;padding:20px clamp(16px,2.4vw,26px);border:1px solid rgba(130,162,184,.2);border-radius:13px;background:rgba(9,14,20,.82)}
+.bay-board[hidden],.bay-editor[hidden],.open-garage[hidden]{display:none}
+
+/* Filling the bays */
+.bay-form{display:grid;gap:14px}
+#bayFields{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:13px}
+.bay-field{margin:0;padding:13px;border:1px solid color-mix(in srgb,var(--tone) 34%,rgba(130,162,184,.2));border-radius:10px;background:rgba(6,11,16,.8)}
+.bay-field legend{display:flex;align-items:center;gap:7px;padding:0 6px;color:#e8f2fa;font:600 13px Outfit,sans-serif}
+.bay-field legend i{width:9px;height:9px;border-radius:2px;background:var(--tone);box-shadow:0 0 9px var(--tone)}
+.bay-field>p{margin:0 0 9px;color:#7d93a5;font:10px "DM Mono";line-height:1.5}
+.bay-field label{display:grid;gap:4px;margin-bottom:8px}
+.bay-row{display:grid;grid-template-columns:1.3fr 1fr .7fr;gap:8px}
+.bay-field span,.open-form span,.open-form legend{color:#7d93a5;font:9px "DM Mono";text-transform:uppercase;letter-spacing:1px}
+.bay-field input,.bay-field select,.open-form input{width:100%;border:1px solid rgba(130,162,184,.28);border-radius:6px;padding:7px;background:#060b10;color:#e6f1f8;font:11.5px "DM Mono"}
+.bay-field input:focus,.bay-field select:focus,.open-form input:focus{outline:0;border-color:var(--tone,#4be6c8)}
+.bay-actions{display:flex;flex-wrap:wrap;gap:9px}
+
+/* Opening one */
+.open-garage>p{max-width:600px;margin:0 0 15px;color:#a9c0cf;font-size:12.5px;line-height:1.55}
+.open-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.open-form label{display:grid;gap:5px}
+.open-form fieldset{grid-column:1/-1;margin:0;padding:12px 14px;border:1px solid rgba(130,162,184,.2);border-radius:9px}
+#openTags{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+#openTags label{display:flex;flex-direction:row;align-items:center;gap:6px;border:1px solid rgba(122,166,255,.3);border-radius:99px;padding:5px 10px;color:#bcd4ea;font:11px "DM Mono";cursor:pointer}
+#openTags label:has(:checked){border-color:#4be6c8;background:rgba(15,44,44,.7);color:#8ff3de}
+#openTags input{width:auto;accent-color:#4be6c8}
+.open-form .bay-actions{grid-column:1/-1}
+
+/* Local Git checkpoint */
+.stage-state{display:flex;align-items:center;gap:8px;color:#93a9ba;font:10px "DM Mono"}
+.stage-state i{width:8px;height:8px;border-radius:50%;background:#4d5b66}
+.stage-state.ready i{background:#4be6c8;box-shadow:0 0 9px #4be6c8}
+.stage-state.error i{background:#ff6b81;box-shadow:0 0 9px #ff6b81}
+.stage-rows{display:grid;gap:4px;margin:14px 0}
+.stage-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 11px;border:1px solid rgba(130,162,184,.16);border-radius:7px;background:rgba(6,11,16,.7);color:#c9dae7;font:11px "DM Mono";cursor:pointer}
+.stage-row:hover{border-color:rgba(122,166,255,.4)}
+.stage-row input{accent-color:#4be6c8}
+.stage-row i{color:#7d93a5;font-style:normal;font-size:10px}
+.stage-toolbar{display:flex;flex-wrap:wrap;gap:9px}
+.stage-note{margin:12px 0 0;color:#7d93a5;font-size:11px;line-height:1.5}
+
+@media(max-width:860px){.garage-head{grid-template-columns:1fr}.garage-jump{padding-left:0;border-left:0;border-top:1px solid rgba(130,162,184,.18);padding-top:14px}.open-form{grid-template-columns:1fr}.bay-row{grid-template-columns:1fr 1fr}}
+
+/* Rebuilding a rack from a paired folder. */
+.bay-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bay-controls select{border:1px solid rgba(130,162,184,.3);border-radius:8px;padding:8px 9px;background:#070c11;color:#e7f2fa;font:11px "DM Mono"}
+.bay-controls select[hidden]{display:none}
+.update-note{margin:0 0 14px;color:#8ff3de;font:10.5px "DM Mono";line-height:1.6}
+.update-note:empty{display:none}
+.snapshot-strip{display:grid;gap:3px;margin-top:13px}
+.snapshot-strip span{color:#6d8496;font:10px "DM Mono"}
+.snapshot-strip span.latest{color:#a9c0cf}
+.pair-zone{margin-top:20px;padding:20px clamp(16px,2.4vw,26px);border:1px solid rgba(130,162,184,.2);border-radius:13px;background:rgba(9,14,20,.82)}
+.pair-list{display:grid;gap:5px;margin-bottom:14px}
+.pair-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 11px;border:1px solid rgba(130,162,184,.18);border-radius:8px;background:rgba(6,11,16,.7)}
+.pair-row b{display:block;color:#e8f2fa;font:600 12.5px Outfit,sans-serif}
+.pair-row span{color:#7d93a5;font:10px "DM Mono";word-break:break-all}
+.pair-row button{border:0;background:none;padding:0;color:#ff8b9e;font:10px "DM Mono"}
+.pair-form{display:grid;grid-template-columns:2fr 1fr auto;gap:11px;align-items:end}
+.pair-form label{display:grid;gap:5px}
+@media(max-width:700px){.pair-form{grid-template-columns:1fr}}
+
+/* Staging: which project is on the rack, and which one visitors meet first. */
+.stage-strip{margin-top:20px;padding:20px clamp(16px,2.4vw,26px);border:1px solid rgba(130,162,184,.2);border-radius:13px;background:rgba(9,14,20,.82)}
+.stage-strip[hidden],.flow-board[hidden]{display:none}
+.project-tabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.project-tab{position:relative;display:grid;gap:6px;padding:12px 13px;border:1px solid rgba(130,162,184,.22);border-radius:10px;background:rgba(6,11,16,.75)}
+.project-tab.current{border-color:#4be6c8;box-shadow:0 0 26px -12px #4be6c8}
+.project-tab.flagship{background:linear-gradient(180deg,rgba(35,28,9,.75),rgba(6,11,16,.85));border-color:rgba(242,193,90,.4)}
+.project-tab>button[data-open]{display:grid;gap:2px;border:0;background:none;padding:0;text-align:left;cursor:pointer}
+.project-tab b{color:#e8f2fa;font:600 14px Outfit,sans-serif}
+.project-tab span{color:#8ba1b2;font:10px "DM Mono"}
+.project-tab .flag{justify-self:start;border:1px solid rgba(242,193,90,.5);border-radius:99px;padding:2px 8px;color:#f6dfa8;font:9px "DM Mono";font-style:normal;text-transform:uppercase;letter-spacing:1px}
+.make-flag{justify-self:start;border:0;background:none;padding:0;color:#7aa6ff;font:10px "DM Mono"}
+.make-flag:hover{color:#fff}
+
+/* Swapping what a bay holds. */
+.variant-tray{margin-top:13px;padding-top:12px;border-top:1px solid rgba(130,162,184,.18)}
+.variant-list{display:grid;gap:5px;margin:8px 0 10px}
+.variant{display:grid;gap:1px;padding:8px 10px;border:1px solid rgba(130,162,184,.22);border-radius:7px;background:rgba(6,11,16,.7);text-align:left;cursor:pointer}
+.variant.on{border-color:#4be6c8;background:rgba(11,38,34,.7)}
+.variant b{color:#e8f2fa;font:600 12px Outfit,sans-serif}
+.variant span{color:#7d93a5;font:10px "DM Mono"}
+.variant-add{display:grid;grid-template-columns:1.1fr 1.2fr .8fr auto;gap:6px;margin-bottom:9px}
+.variant-add input{border:1px solid rgba(130,162,184,.28);border-radius:6px;padding:6px 7px;background:#060b10;color:#e6f1f8;font:10.5px "DM Mono"}
+.variant-add .button{padding:6px 10px;font-size:11px}
+.commit-list{display:grid;gap:4px;margin-top:8px}
+.commit{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:9px;align-items:center;padding:6px 9px;border:1px solid rgba(130,162,184,.18);border-radius:6px;background:rgba(6,11,16,.7);text-align:left;cursor:pointer}
+.commit:hover{border-color:#7aa6ff}
+.commit code{color:#f2c15a;font:10px "DM Mono"}
+.commit span{color:#c9dae7;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.commit i{color:#7d93a5;font:9px "DM Mono";font-style:normal}
+
+/* Workflow editor */
+.flow-board{margin-top:20px;padding:20px clamp(16px,2.4vw,26px);border:1px solid rgba(130,162,184,.2);border-radius:13px;background:rgba(9,14,20,.82)}
+.flow-editor{display:grid;gap:11px;margin-top:14px;padding:14px;border:1px solid rgba(130,162,184,.22);border-radius:10px;background:rgba(6,11,16,.8)}
+.flow-editor[hidden]{display:none}
+.flow-editor label{display:grid;gap:5px}
+.flow-editor span{color:#7d93a5;font:9px "DM Mono";text-transform:uppercase;letter-spacing:1px}
+.flow-editor input,.flow-editor select{width:100%;border:1px solid rgba(130,162,184,.28);border-radius:6px;padding:7px;background:#060b10;color:#e6f1f8;font:11.5px "DM Mono"}
+#flowSteps{display:grid;gap:7px}
+.flow-step{display:grid;grid-template-columns:1.1fr .8fr 1.5fr auto;gap:7px;align-items:center}
+.flow-step button{border:1px solid rgba(255,107,129,.3);border-radius:6px;padding:6px 9px;background:transparent;color:#ff8b9e;font:10px "DM Mono"}
+@media(max-width:760px){.variant-add,.flow-step{grid-template-columns:1fr}}
+
+/* The bench: other people's builds, pulled apart next to yours. */
+.bench{margin-top:20px;padding:20px clamp(16px,2.4vw,26px);border:1px solid rgba(242,193,90,.26);border-radius:13px;background:linear-gradient(180deg,rgba(24,20,10,.7),rgba(9,14,20,.85))}
+.bench[hidden]{display:none}
+.bench-list{display:grid;gap:7px}
+.bench-item{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:11px 13px;border:1px solid rgba(130,162,184,.22);border-radius:9px;background:rgba(6,11,16,.75)}
+.bench-item b{display:block;color:#e8f2fa;font:600 13px Outfit,sans-serif}
+.bench-item span{color:#8ba1b2;font:10px "DM Mono"}
+.bench-acts{display:flex;gap:8px}
+.bench-acts button{border:1px solid rgba(122,166,255,.34);border-radius:99px;padding:5px 11px;background:rgba(11,18,26,.8);color:#bcd4ea;font:10px "DM Mono"}
+.bench-acts button:hover{border-color:#7aa6ff;color:#fff}
+.bench-detail{margin-top:14px;padding:15px;border:1px solid rgba(130,162,184,.24);border-radius:11px;background:rgba(7,12,18,.85)}
+.bench-detail[hidden]{display:none}
+.bench-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:start;gap:12px;margin-bottom:12px}
+.bench-head h3{margin:4px 0 3px;color:#eef6fb;font:600 19px Outfit,sans-serif}
+.bench-head p{margin:0;color:#93a9ba;font-size:12px}
+.bench-path{margin:0 0 12px;color:#8ff3de;font:10px "DM Mono";word-break:break-all}
+.bench-test{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:end;margin-top:14px}
+.bench-test label{display:grid;gap:5px}
+.bench-test span{color:#7d93a5;font:9px "DM Mono";text-transform:uppercase;letter-spacing:1px}
+.bench-test input{width:100%;border:1px solid rgba(130,162,184,.28);border-radius:7px;padding:8px;background:#060b10;color:#e6f1f8;font:11.5px "DM Mono"}
+.bench-result{margin:12px 0 0;padding:11px;border:1px solid rgba(130,162,184,.2);border-radius:8px;background:#050a0e;color:#a9c0cf;font:10.5px/1.6 "DM Mono";white-space:pre-wrap;max-height:190px;overflow:auto}
+.bench-talk{margin-top:16px;padding-top:13px;border-top:1px solid rgba(130,162,184,.18)}
+.bench-note-row{margin:6px 0 0;color:#c9dae7;font-size:12px;line-height:1.5}
+.bench-note-row b{color:#e8f2fa}
+.bench-note-row i{color:#7aa6ff;font-style:normal;font-size:10px;font-family:"DM Mono"}
+.bench-note{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:10px}
+.bench-note input{border:1px solid rgba(130,162,184,.28);border-radius:7px;padding:8px;background:#060b10;color:#e6f1f8;font-size:12px}
+
+/* Bay-for-bay diff */
+.compare{width:100%;border-collapse:collapse;font-size:12px}
+.compare th,.compare td{padding:9px 11px;border-bottom:1px solid rgba(130,162,184,.14);text-align:left;vertical-align:top}
+.compare thead th{color:#7d93a5;font:9px "DM Mono";text-transform:uppercase;letter-spacing:1.2px}
+.compare tbody th{width:120px;color:#bcd4ea;font:500 11px "DM Mono"}
+.compare td b{display:block;color:#e8f2fa;font:600 12.5px Outfit,sans-serif}
+.compare td span{color:#8ba1b2;font:10px "DM Mono"}
+.compare td em{color:#5f7387;font-style:normal;font-size:11px}
+.compare tr.v-only-theirs td:last-child{background:rgba(122,166,255,.09)}
+.compare tr.v-only-yours td:nth-child(2){background:rgba(75,230,200,.08)}
+@media(max-width:700px){.bench-test,.bench-note{grid-template-columns:1fr}}
+
+/* Reaching the actual code behind a bay. Read-only — the workshop window, not the workbench. */
+.code-zone{margin-top:12px;padding-top:11px;border-top:1px solid rgba(130,162,184,.18)}
+.code-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.code-head .eyebrow{margin-right:auto}
+.text-button.ping{color:#8ff3de}
+.text-button.ping:hover{color:#fff}
+.file-list{display:grid;gap:3px;margin-top:9px;max-height:170px;overflow:auto}
+.file{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:center;padding:6px 9px;border:1px solid rgba(130,162,184,.16);border-radius:6px;background:rgba(6,11,16,.7);text-align:left;cursor:pointer}
+.file:hover{border-color:#7aa6ff}
+.file code{color:#c9dae7;font:10.5px "DM Mono";overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file i{color:#7d93a5;font:9px "DM Mono";font-style:normal;white-space:nowrap}
+.code-view:not(:empty){margin-top:10px;border:1px solid rgba(130,162,184,.22);border-radius:8px;overflow:hidden}
+.code-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid rgba(130,162,184,.18);background:rgba(18,26,34,.9)}
+.code-bar code{color:#8ff3de;font:10.5px "DM Mono"}
+.code-bar span{margin-right:auto;color:#7d93a5;font:9.5px "DM Mono"}
+pre.code{margin:0;padding:12px 13px;max-height:330px;overflow:auto;background:#050a0e}
+pre.code code{color:#bcd0de;font:11px/1.65 "DM Mono";white-space:pre}

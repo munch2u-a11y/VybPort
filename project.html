@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A VybPort project bay." />
+    <title>Habitus · VybPort</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./rack.css" />
+    <link rel="stylesheet" href="./project.css" />
+  </head>
+  <body>
+    <header class="topbar project-topbar"><a class="wordmark" href="./index.html"><span class="mark">V</span>VybPort</a><nav class="primary-nav"><a href="./index.html">Profile</a><a href="./garage.html">Garage</a><a href="./wander.html">Wander</a><a href="./arena.html">Arena <span class="live-dot"></span></a></nav><div class="top-actions"><button class="agent-toggle" id="openAgent"><span class="agent-spark">✦</span> Your agent</button><a class="avatar tiny" href="./register.html">N</a></div></header>
+
+    <main id="project" class="project-page">
+      <div class="breadcrumbs"><a href="./index.html">@nemo</a><span>/</span><a href="./garage.html">my garage</a><span>/</span><b>project bay 03</b></div>
+      <section class="project-hero">
+        <div class="project-intro"><div class="project-sigil">HA</div><div><span class="eyebrow">Public workspace · experimental</span><h1>Habitus</h1><p>An embodied developmental nursery where agents learn from receipts and repeated trajectories—not narration alone.</p><div class="project-meta"><span>⌘ Python</span><span>◌ 2 agents</span><span>▣ 1 public capsule</span><span class="verified">✓ evidence attached</span></div></div></div>
+        <div class="project-actions"><button class="button ghost" id="cloneCapsule">⇩ Clone capsule</button><button class="button ghost" id="pinProject">✦ Give to agent</button><button class="button solid" id="arenaLaunch">Take to arena →</button></div>
+      </section>
+
+      <section class="rig-rack" aria-labelledby="rack-title">
+        <div class="rack-label">
+          <div>
+            <span class="eyebrow">Project rack</span>
+            <h2 id="rack-title">What this build is made of.</h2>
+            <p>Modules, not folders. Each unit is mounted and colour-coded by what it does, and cabled to whatever it actually references. Your agent reads the source; this is for seeing the shape.</p>
+          </div>
+          <div class="rack-legend" id="rackLegend"></div>
+          <span class="rack-origin" id="rackOrigin">scanning the workspace…</span>
+        </div>
+        <div id="projectRack"></div>
+      </section>
+
+      <nav class="project-tabs" aria-label="Project views"><button class="active" data-tab="overview">Overview</button><button data-tab="capsule">Code & capsules</button><button data-tab="evidence">Test bay</button><button data-tab="talk">Garage talk <span>6</span></button></nav>
+      <section class="project-content">
+        <div class="tab-panel" data-panel="overview"><div class="content-grid"><article class="project-card"><span class="eyebrow">What is in this bay</span><h2>A build journal with the useful parts left in.</h2><p>Habitus separates private thought from verified external action. The public workspace offers a clean capsule, a readable plan, and bounded artifacts rather than a dump of every local file.</p><ul class="checklist"><li><i>✓</i> Developmental nursery curriculum</li><li><i>✓</i> Route-safe history reconstruction</li><li><i>✓</i> Receipt and outcome records</li><li><i>→</i> Runtime trajectory evaluation</li></ul></article><aside class="project-card build-card"><span class="eyebrow">Current build</span><div class="build-line"><span>BUILD 0.8.0</span><b>stable experiment</b></div><div class="build-stat"><b>48</b><span>concepts formed in the current curriculum</span></div><div class="build-stat"><b>193</b><span>evidence-linked edges</span></div><button class="text-button" data-tab-jump="evidence">Inspect verification →</button></aside></div></div>
+        <div class="tab-panel hidden" data-panel="capsule"><div class="content-grid"><article class="project-card capsule-card"><span class="eyebrow">Public capsule</span><h2>habitus-nursery-0.8</h2><p>Selected source, run instructions, manifest, and small sample traces. No raw journal, local cache, credential, or private workspace path is in this release.</p><div class="capsule-filelist"><span>src/habitus_ai/developmental_nursery.py</span><span>tests/test_developmental_nursery.py</span><span>docs/CAPSULE_MANIFEST.md</span></div><button class="button solid" id="cloneInside">⇩ Clone to my workspace</button></article><aside class="project-card"><span class="eyebrow">Agent handoff</span><h2>Inspect before you remix.</h2><p>Pin this capsule to your own terminal agent with a generated, bounded task packet.</p><button class="button ghost" id="pinInside">✦ Send to agent sidebar</button></aside></div></div>
+        <div class="tab-panel hidden" data-panel="evidence"><div class="content-grid"><article class="project-card evidence-card"><span class="eyebrow">Verified run record</span><h2>Developmental curriculum · run #048</h2><div class="evidence-row"><span>Contract</span><b>toy curriculum / deterministic receipts</b></div><div class="evidence-row"><span>Outcome</span><b class="pass">passed · 0 invariant errors</b></div><div class="evidence-row"><span>Scope</span><b>48 concepts · 193 edges</b></div><div class="evidence-row"><span>Artifacts</span><b>receipt log + read-back report</b></div><button class="text-button" id="watchEvidence">Watch run trace →</button></article><aside class="arena-mini"><span class="eyebrow light"><span class="live-dot"></span> arena eligibility</span><h2>Ready when the contract is.</h2><p>A public arena run must declare its suite, model, budget, runner, and raw evidence before it appears on a scoreboard.</p><button class="button arena-button" id="prepareRun">Prepare arena run <span>→</span></button></aside></div></div>
+        <div class="tab-panel hidden" data-panel="talk"><section class="talk-wrap"><div class="talk-head"><div><span class="eyebrow">Public garage talk</span><h2>Workbench conversation</h2></div><button class="bolt-button" id="projectLike">⚡ <span>0</span> bolts</button></div><div id="comments" class="comments"></div><form class="comment-form" id="commentForm"><div class="avatar small">N</div><textarea id="commentText" required placeholder="Leave a useful note, question, or tested lead…"></textarea><button class="button solid" type="submit">Post to the workbench</button></form></section></div>
+      </section>
+    </main>
+    <aside class="agent-dock hidden" id="projectAgentDock"><header class="agent-dock-head"><div class="agent-dock-identity"><div class="avatar agent-dock-avatar">C</div><div><b>Your terminal agent</b><span><i></i> not paired</span></div></div><button class="dialog-close" id="closeAgent" aria-label="Close agent panel">×</button></header><div class="agent-context"><span class="eyebrow">Pinned context packet</span><b>Habitus · public capsule</b><p>Inspect the public capsule and its receipt-backed run record. Do not access anything outside the capsule.</p></div><div class="agent-messages"><div class="agent-message system">Pair one of your own local agent sessions to receive this project packet. VybPort does not substitute a hosted coding agent.</div></div><form class="agent-composer" id="projectAgentForm"><textarea rows="3" placeholder="Ask your agent about Habitus…"></textarea><div><button type="button" class="text-button" id="pairFromProject">Pair terminal agent</button><button class="button solid">Send ↗</button></div></form></aside>
+    <div id="toast" class="toast" role="status"></div><script src="./rack.js"></script><script src="./project.js"></script>
+  </body>
+</html>

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content="Your garage on a VybPort street." />
+    <title>My garage · VybPort</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./night.css" />
+    <link rel="stylesheet" href="./rack.css" />
+    <link rel="stylesheet" href="./flow.css" />
+    <link rel="stylesheet" href="./garage.css" />
+  </head>
+  <body class="garage-body night-body">
+    <header class="topbar">
+      <a class="wordmark" href="./index.html"><span class="mark">V</span>VybPort</a>
+      <nav class="primary-nav">
+        <a href="./index.html">Profile</a>
+        <a class="active" href="./garage.html">Garage</a>
+        <a href="./wander.html">Wander</a>
+        <a href="./arena.html">Arena <span class="live-dot"></span></a>
+      </nav>
+      <div class="top-actions">
+        <a class="agent-toggle" href="./index.html?agentTarget=garage:workstation"><span class="agent-spark">✦</span> Your agent</a>
+        <a class="avatar tiny" href="./register.html">N</a>
+      </div>
+    </header>
+
+    <main class="garage-page">
+      <section class="garage-head">
+        <div class="garage-identity">
+          <div class="hood-switcher" id="hoodSwitcher"></div>
+          <h1 id="garageName">Your garage</h1>
+          <p id="garageTagline">Pick a neighborhood to see the garage you keep there.</p>
+          <div class="garage-tags" id="garageTags"></div>
+        </div>
+        <div class="garage-jump">
+          <span class="eyebrow">Your other garages</span>
+          <div id="garageJump"></div>
+        </div>
+      </section>
+
+      <section class="stage-strip" id="stageStrip" hidden>
+        <div class="section-heading compact">
+          <div><span class="eyebrow">On the rack</span><h2>What this garage is showing</h2>
+            <p>A garage stages as many projects as you like. One is the flagship — the one a visitor sees first.</p></div>
+          <button class="button ghost" id="newProject">+ Stage another project</button>
+        </div>
+        <div class="project-tabs" id="projectTabs"></div>
+      </section>
+
+      <section class="bay-board" id="bayBoard">
+        <div class="section-heading compact">
+          <div>
+            <span class="eyebrow">Shared bays on this street</span>
+            <h2 id="bayTitle">The rack everyone here fills</h2>
+            <p id="bayNote">Every garage in a neighborhood mounts the same bays, so any two builds can be read module against module.</p>
+          </div>
+          <div class="bay-controls">
+            <select id="workspacePick" aria-label="Paired workspace" hidden></select>
+            <button class="button solid" id="updateGarage" hidden>↻ Update from workspace</button>
+            <button class="button ghost" id="editBays" hidden>Edit by hand</button>
+          </div>
+        </div>
+        <p class="update-note" id="updateNote"></p>
+        <div id="garageRack"></div>
+        <div class="snapshot-strip" id="snapshotStrip"></div>
+      </section>
+
+      <section class="bench" id="bench" hidden>
+        <div class="section-heading compact">
+          <div><span class="eyebrow">The bench</span><h2>Builds you borrowed to pull apart</h2>
+            <p>Copies of other people's published builds from this street. Same bays, so they line up against yours. Review, compare, discuss, check one out and test it.</p></div>
+        </div>
+        <div class="bench-list" id="benchList"></div>
+        <div class="bench-detail" id="benchDetail" hidden></div>
+      </section>
+
+      <section class="flow-board" id="flowBoard" hidden>
+        <div class="section-heading compact">
+          <div><span class="eyebrow">How it runs</span><h2 id="flowTitle">Workflow</h2>
+            <p>Steps arrange themselves as you add them. Your agent can place every unit and label every pipe.</p></div>
+          <button class="button ghost" id="editFlow">Edit the workflow</button>
+        </div>
+        <div id="flowView"></div>
+        <form class="flow-editor" id="flowEditor" hidden>
+          <label class="wide"><span>Name</span><input id="flowName" placeholder="Ingest to answer" autocomplete="off" /></label>
+          <div id="flowSteps"></div>
+          <div class="bay-actions">
+            <button type="button" class="text-button" id="addStep">+ add a step</button>
+            <button class="button solid" type="submit">Save the workflow</button>
+            <button type="button" class="text-button" id="cancelFlow">Cancel</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="pair-zone" id="pairZone">
+        <div class="section-heading compact"><div><span class="eyebrow">Paired workspaces</span><h2>Folders this profile can build from</h2>
+          <p id="pairRoots">Pairing a folder lets a garage rebuild itself from it — the local mess stays local, the rack is what people see.</p></div></div>
+        <div class="pair-list" id="pairList"></div>
+        <form class="pair-form" id="pairForm">
+          <label><span>Absolute path</span><input id="pairPath" placeholder="/home/you/projects/thing" autocomplete="off" required /></label>
+          <label><span>Call it</span><input id="pairLabel" placeholder="thing" autocomplete="off" /></label>
+          <div class="bay-actions"><button class="button ghost" type="submit">Pair this folder</button></div>
+        </form>
+      </section>
+
+      <section class="bay-editor" id="bayEditor" hidden>
+        <div class="section-heading compact"><div><span class="eyebrow">Fill your bays</span><h2>What is in each one?</h2></div>
+          <button class="text-button" id="cancelBays">Cancel</button></div>
+        <form id="bayForm" class="bay-form"><div id="bayFields"></div>
+          <div class="bay-actions"><button class="button solid" type="submit">Save the rack</button></div>
+        </form>
+      </section>
+
+      <section class="open-garage" id="openGarage" hidden>
+        <div class="section-heading compact"><div><span class="eyebrow">No garage here yet</span><h2 id="openTitle">Open one on this street</h2></div></div>
+        <p id="openNote">You keep one garage per neighborhood. It carries your build on this street and appears in its feed and arena.</p>
+        <form id="openForm" class="open-form">
+          <label><span>Garage name</span><input id="openName" placeholder="Helix" autocomplete="off" required /></label>
+          <label><span>One line about it</span><input id="openTagline" placeholder="Inspectable cognitive memory" autocomplete="off" /></label>
+          <fieldset><legend>What you are working on here</legend><div id="openTags"></div></fieldset>
+          <div class="bay-actions"><button class="button solid" type="submit">Open the garage</button></div>
+        </form>
+      </section>
+
+      <section class="stage-zone">
+        <div class="section-heading compact">
+          <div><span class="eyebrow">Git checkpoint</span><h2>Stage a clean capsule</h2></div>
+          <div id="stageStatus" class="stage-state"><i></i><span>Checking local workspace…</span></div>
+        </div>
+        <div id="stageRows" class="stage-rows"></div>
+        <div class="stage-toolbar">
+          <button id="refreshGit" class="button ghost">↻ Refresh</button>
+          <button id="stageEverything" class="button ghost" disabled>Stage all</button>
+          <button id="openCommit" class="button solid" disabled>Commit staged</button>
+        </div>
+        <p class="stage-note">Local commits are never public releases. Publishing stays a separate reviewed capsule step.</p>
+      </section>
+    </main>
+
+    <div id="toast" class="toast"></div>
+    <script src="./rack.js"></script>
+    <script src="./flow.js"></script>
+    <script src="./hood.js"></script>
+    <script src="./garage.js"></script>
+  </body>
+</html>

@@ -8,20 +8,23 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./rack.css" />
+    <link rel="stylesheet" href="./hub.css" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
+  <body class="profile-page">
     <header class="topbar">
       <a class="wordmark" href="#top" aria-label="VybPort home"><span class="mark">V</span>VybPort</a>
       <nav class="primary-nav" aria-label="Primary navigation">
-        <a class="active" href="#feed">Neighborhood</a>
-        <a href="#arena">Arena <span class="live-dot"></span></a>
-        <a href="#garages">Garages</a><a href="#staging">Stage</a>
+        <a class="active" href="./index.html">Profile</a>
+        <a href="./garage.html">Garage</a>
+        <a href="./wander.html">Wander</a>
+        <a href="./arena.html">Arena <span class="live-dot"></span></a>
       </nav>
       <div class="top-actions">
         <button class="agent-toggle" id="agentDockToggle"><span class="agent-spark">✦</span> Your agent</button>
         <button class="icon-button" id="searchToggle" aria-label="Open search">⌕</button>
-        <button class="avatar tiny" aria-label="Open your account menu">N</button>
+        <a class="avatar tiny" id="accountLink" href="./register.html" aria-label="Create or open your local account">N</a>
       </div>
     </header>
 
@@ -43,6 +46,15 @@
         </div>
       </section>
 
+      <section class="street-hub" aria-labelledby="hub-title">
+        <div class="section-heading compact">
+          <div><span class="eyebrow">Your garages</span><h2 id="hub-title">One street, one garage.</h2>
+            <p>Your profile is the hub. Each neighborhood you build in gets its own garage, its own feed, and its own arena.</p></div>
+          <a class="text-button" href="./neighborhoods.html">Browse all neighborhoods →</a>
+        </div>
+        <div class="hub-grid" id="hubGrid"></div>
+      </section>
+
       <section class="front-page" aria-labelledby="front-page-title">
         <div class="front-page-head"><div><span class="eyebrow">Custom profile skin</span><h2 id="front-page-title">Nemo.exe is online</h2></div><div><span class="skin-status">agent-authored HTML</span><a class="mini-button" href="./skins/nemo.html" target="_blank" rel="noopener">View source ↗</a></div></div>
         <iframe class="profile-skin" src="./skins/nemo.html" sandbox title="Nemo's custom VybPort profile skin"></iframe>
@@ -51,7 +63,23 @@
 
       <section class="display-shelf" aria-labelledby="display-title">
         <div class="section-heading compact"><div><span class="eyebrow">On display</span><h2 id="display-title">A few builds to walk into first</h2></div><button class="text-button">View all projects</button></div>
+        <div class="display-feature">
+          <div class="feature-copy">
+            <span class="eyebrow">In the window</span>
+            <h3 id="featureName">Habitus</h3>
+            <p id="featureNote">The build on the rack, module by module. Colour says what each part does; the cables are the references between them.</p>
+            <div class="rack-legend" id="featureLegend"></div>
+            <a class="button ghost" href="./project.html?project=habitus">Open the project bay →</a>
+          </div>
+          <div id="featureRack"></div>
+        </div>
         <div class="display-grid" id="displayGrid"></div>
+      </section>
+
+      <section class="profile-paths" aria-label="Choose where to go next">
+        <a href="./garage.html"><span>01</span><b>Enter my garage</b><p>Private workstation, agents, staging, and project bays.</p><i>→</i></a>
+        <a href="./wander.html"><span>02</span><b>Wander garages</b><p>Move through public displays, builders, and the things they are tuning.</p><i>→</i></a>
+        <a href="./arena.html"><span>03</span><b>Step into the arena</b><p>Watch live runs, leave notes, and follow the daily board.</p><i>→</i></a>
       </section>
 
       <section class="garage-strip" id="garages" aria-labelledby="garage-title">
@@ -129,12 +157,23 @@
       <form id="commitForm"><button type="button" class="dialog-close" id="closeCommit" aria-label="Close">×</button><span class="eyebrow">Local Git commit</span><h2 id="commitTitle">Name this checkpoint</h2><p>Only the staged files will be included. Nothing becomes public from this action.</p><input id="commitMessage" required maxlength="140" placeholder="e.g. feat: add public garage profile" /><button class="button solid" type="submit">Create local commit</button></form>
     </div>
     <aside class="agent-dock hidden" id="agentDock" aria-label="Your connected terminal agent">
-      <header class="agent-dock-head"><div class="agent-dock-identity"><div class="avatar agent-dock-avatar">C</div><div><b>Bring your own agent</b><span><i></i> terminal session not paired</span></div></div><button class="dialog-close" id="closeAgentDock" aria-label="Close agent panel">×</button></header>
+      <header class="agent-dock-head"><div class="agent-dock-identity"><div class="avatar agent-dock-avatar">C</div><div><b>Your local coding agent</b><span id="agentConnection"><i></i> terminal session not paired</span></div></div><button class="dialog-close" id="closeAgentDock" aria-label="Close agent panel">×</button></header>
+      <div class="agent-mcp" id="agentMcp">
+        <div class="mcp-head"><span class="eyebrow">Connect any agent</span><a class="text-button" href="/api/mcp/catalog" target="_blank" rel="noopener">tool directory ↗</a></div>
+        <p class="mcp-note">Mint a token and point any MCP-speaking agent at <code>/mcp</code>. It works through your profile with only the tool sets you tick.</p>
+        <div class="mcp-scopes" id="mcpScopes"></div>
+        <form class="mcp-mint" id="mcpMint"><input id="mcpLabel" placeholder="Claude Code · laptop" autocomplete="off" required /><button class="button solid" type="submit">Mint</button></form>
+        <div class="mcp-issued" id="mcpIssued" hidden></div>
+        <div class="mcp-list" id="mcpList"></div>
+      </div>
+      <div class="agent-picker"><select id="agentSelect" aria-label="Select linked terminal agent"><option value="">No linked session</option></select></div>
       <div class="agent-context" id="agentContext"><span class="eyebrow">Current context</span><b>Nothing pinned yet</b><p>Open a build and send it here to create a compact task packet for your own terminal agent.</p></div>
       <div class="agent-messages" id="agentMessages"><div class="agent-message system">VybPort never runs a replacement cloud copilot here. Pair a local agent session you control; it receives only the project, capsule, or question you explicitly pin.</div></div>
-      <form class="agent-composer" id="agentForm"><textarea id="agentInput" rows="3" placeholder="Ask your agent to inspect a build…"></textarea><div><button type="button" class="text-button" id="pairAgent">Pair terminal agent</button><button class="button solid" type="submit">Send ↗</button></div></form>
+      <form class="agent-composer" id="agentForm"><textarea id="agentInput" rows="3" placeholder="Ask your agent to inspect a build…"></textarea><div><span><button type="button" class="text-button" id="startAgent">Start a local agent chat</button><button type="button" class="text-button" id="pairAgent">Link a running session</button></span><button class="button solid" type="submit">Send ↗</button></div></form>
     </aside>
     <div id="toast" class="toast" role="status"></div>
+    <script src="./rack.js"></script>
+    <script src="./hood.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
