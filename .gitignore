@@ -1,2 +1,7 @@
 __pycache__/
 *.py[cod]
+data/
+vybport-bench/
+
+# Reference art kept outside the repo
+images/Gemini_Generated_Image_*
