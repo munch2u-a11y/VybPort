@@ -97,7 +97,7 @@ function render(container,data,options={}){
    <svg class="rack-cables" aria-hidden="true"></svg>
    <div class="rack-shelves">${shelves.map(shelf=>`<div class="rack-shelf">${shelf.map(module=>podMarkup(module,largest)).join('')}</div>`).join('')}</div>
    <i class="rack-rail bottom"></i>
-  </div>${options.compact?'':'<aside class="rack-detail" hidden></aside>'}`;
+  </div>${options.compact||options.detail===false?'':'<aside class="rack-detail" hidden></aside>'}`;
  container.cables=cables;
  const redraw=()=>drawCables(container);
  requestAnimationFrame(redraw);

@@ -15,7 +15,7 @@ const garages=[
 ];
 /* Which street you are standing on, and what you are building on it. Overlap with your own tags
    decides how far down that street another builder stands. */
-let hood=null,myFocus=['memory','agents','local'],liveGarages=[];
+let hood=null,myFocus=['memory','agents','local'],liveGarages=[],myGarage=null;
 const steps=[
  {label:'next door',blurb:'your exact stack'},
  {label:'same block',blurb:'two shared interests'},
@@ -44,7 +44,8 @@ function ribbon(item){const badge=badges.get(item.id);return badge?`<span class=
 function displayMarkup(item){return item.img
  ?`<div class="bay-display photo"><img class="display-photo" src="${item.img}" alt="${safe(item.display)} on display" loading="lazy"></div>`
  :`<div class="bay-display" data-rig="${item.rig}"><span class="display-mark">${safe(item.mark)}</span></div>`}
-function unitMarkup(item,block,number){const distance=step(item),overlap=shared(item),cloned=tray().includes(item.id);
+function savedSlots(item){const saved=item.live&&myGarage?.bench?.find(project=>project.origin_project===item.projectId);return saved?(saved.modules||[]).map(module=>module.slot):[]}
+function unitMarkup(item,block,number){const distance=step(item),overlap=shared(item),saved=savedSlots(item),cloned=item.live?saved.length>0:tray().includes(item.id);
  return `<article class="garage-unit" data-id="${item.id}" data-block="${block}" style="--hue:${item.hue}">
  <div class="unit-body">
   <a class="unit-enter" href="./index.html?user=${encodeURIComponent(item.user)}" aria-label="Enter ${safe(item.owner)}'s garage">
@@ -69,7 +70,7 @@ function unitMarkup(item,block,number){const distance=step(item),overlap=shared(
    <div>
     <button data-like="${item.id}" class="bolt">⚡ bolt</button>
     <button data-comment="${item.id}">◌ note</button>
-    <button data-clone="${item.id}" class="clone${cloned?' done':''}">${cloned?'✓ saved':(item.live?'⑂ borrow to bench':'⑂ save '+safe(item.repo))}</button>
+    <button data-clone="${item.id}" class="clone${cloned?' done':''}">${item.live?(cloned?`✓ ${saved.length} in locker`:'⑂ save modules'):(cloned?'✓ saved':'⑂ save '+safe(item.repo))}</button>
     <button data-pin="${item.id}">✦ hand to agent</button>
    </div>${ribbon(item)}
   </footer>
@@ -113,21 +114,21 @@ function updatePosition(){const items=activeGarages(),close=items.filter(item=>s
   :`${name} · ${items.length} open doors · ${close} on your block (${myFocus.join(', ')}) · quiet garages stay findable by search, friends, or a direct link.`}
 
 /* Real garages on this street, shaped like the ones the street already knows how to draw. */
-function fromGarage(row){const modules=row.modules||[];
+function fromGarage(row){const modules=row.modules||[],flagship=row.flagship||{};
  return {id:`garage:${row.handle}:${row.neighborhood}`,user:row.handle,mark:row.name.slice(0,2).toUpperCase(),
   owner:row.name,handle:`@${row.handle}`,kind:row.neighborhood_name,hue:row.hue,rig:'lattice',
   display:modules.length?`${modules.length} of ${(hood&&hood.slots.length)||0} bays mounted`:'bays still empty',
   displayCopy:row.tagline||'',post:row.tagline||`${row.display_name} keeps a garage on ${row.neighborhood_name}.`,
   tags:row.tags||[],when:'live',age:.1,repo:`${row.handle}/${row.name.toLowerCase().replace(/\s+/g,'-')}`,
-  live:true,projectId:(row.flagship||{}).id}}
+  live:true,projectId:flagship.id,modules,publishedFiles:flagship.published_files||{}}}
 
 async function loadStreet(){
  const active=await VybHood.mountSwitcher($('#hoodSwitcher'),{onChange:slug=>{location.search=`?n=${encodeURIComponent(slug)}`}});
  if(!active)return;
  hood=(await api(`/api/neighborhoods/${encodeURIComponent(active.slug)}`)).neighborhood;
  /* Your own tags on this street set the walking distance; the street's own tags stand in if you have no garage here. */
- try{const mine=(await api('/api/garages?mine=1')).garages.find(item=>item.neighborhood===hood.slug);
-  if(mine&&mine.tags.length)myFocus=mine.tags}catch{}
+ try{myGarage=(await api('/api/garages?mine=1')).garages.find(item=>item.neighborhood===hood.slug)||null;
+  if(myGarage&&myGarage.tags.length)myFocus=myGarage.tags}catch{myGarage=null}
  if(myFocus.length===0||!hood.tags.some(tag=>myFocus.includes(tag)))myFocus=hood.tags.slice(0,3);
  try{liveGarages=(await api(`/api/garages?neighborhood=${encodeURIComponent(hood.slug)}`)).garages.map(fromGarage)}catch{liveGarages=[]}
  document.querySelectorAll('[data-filter]').forEach(button=>button.remove());
@@ -135,23 +136,30 @@ async function loadStreet(){
  holder.innerHTML=`<button data-filter="all" class="active">All</button>`+
   hood.tags.slice(0,5).map(tag=>`<button data-filter="${safe(tag)}">${safe(tag)}</button>`).join('');
  $('#wanderSearch').placeholder=`Find a garage on ${hood.name}`;
- resetStreet()}
+ resetStreet();updateTray()}
 
 /* Things you can carry away: a clone, a note, a bolt, or the whole garage handed to your own agent. */
 function tray(){try{return JSON.parse(localStorage.getItem(TRAY))||[]}catch{return[]}}
-function updateTray(){const count=tray().length;$('#trayCount').textContent=`${count} saved`}
+function updateTray(){const live=(myGarage?.bench||[]).reduce((sum,project)=>sum+(project.modules||[]).length,0),count=tray().length+live;$('#trayCount').textContent=`${count} saved`}
+function pickerMarkup(item){const already=new Set(savedSlots(item));return `<div class="module-picker" data-picker="${safe(item.id)}">
+ <header><div><span>Choose what enters your locker</span><b>${safe(item.owner)} · ${item.modules.length} modules</b></div><button data-cancel-save="${safe(item.id)}">×</button></header>
+ <div class="module-picker-list">${item.modules.map(module=>{const files=item.publishedFiles?.[module.slot]||[];return `<label><input type="checkbox" value="${safe(module.slot)}"${already.size?already.has(module.slot)?' checked':'':' checked'}><i></i><span><b>${safe(module.name)}</b><small>${safe(module.lang||'mixed')} · ${files.length?`${files.length} shared code file${files.length===1?'':'s'}`:'design only'}</small></span></label>`}).join('')}</div>
+ <footer><p>Only owner-selected snapshots come with a module. No live workspace access.</p><button data-save-modules="${safe(item.id)}">Save selection to locker</button></footer>
+ </div>`}
 async function clone(item,button){
- /* A live garage gets borrowed onto your bench for real; a demo one is only remembered locally. */
+ /* Live garages expose an exact module picker. Demo cards remain lightweight local bookmarks. */
  if(item.live&&item.projectId){
-  try{const mine=(await api('/api/garages?mine=1')).garages.find(entry=>entry.neighborhood===hood.slug);
-   if(!mine){toast(`Open your own garage on ${hood.name} first — the bench lives there.`);return}
-   await api(`/api/garages/${mine.id}/borrow`,{method:'POST',body:JSON.stringify({project:item.projectId})});
-   button.classList.add('done');button.textContent='✓ on your bench';
-   toast(`${item.owner} is on your bench. Compare it bay for bay in your garage.`);return}
-  catch(error){toast(error.message);return}}
+  if(!myGarage){toast(`Open your own garage on ${hood.name} first — the locker lives there.`);return}
+  if(item.projectId===myGarage.flagship?.id){toast('That display is already yours. Open it in your garage workshop.');return}
+  if(!item.modules.length){toast('This display has no mounted modules to save yet.');return}
+  const post=button.closest('.unit-post'),old=post.querySelector('.module-picker');if(old){old.remove();return}
+  post.querySelectorAll('.module-picker').forEach(node=>node.remove());button.closest('.post-actions').insertAdjacentHTML('beforebegin',pickerMarkup(item));return}
  const list=tray();if(list.includes(item.id)){toast(`${item.repo} is already saved.`);return}
  list.push(item.id);try{localStorage.setItem(TRAY,JSON.stringify(list))}catch{}
- button.classList.add('done');button.textContent='✓ saved';updateTray();toast(`Saved ${item.repo}. Real garages on this street borrow onto your bench.`)}
+ button.classList.add('done');button.textContent='✓ saved';updateTray();toast(`Saved ${item.repo}. Live modules go into your review locker.`)}
+async function saveModules(item,article){const picker=article.querySelector('.module-picker'),slots=[...picker.querySelectorAll('input:checked')].map(input=>input.value);if(!slots.length){toast('Choose at least one module.');return}const button=picker.querySelector('[data-save-modules]');button.disabled=true;button.textContent='Saving…';
+ try{const result=await api(`/api/garages/${myGarage.id}/borrow`,{method:'POST',body:JSON.stringify({project:item.projectId,slots})});myGarage=result.garage;picker.remove();const trigger=article.querySelector('[data-clone]'),count=savedSlots(item).length;trigger.classList.add('done');trigger.textContent=`✓ ${count} in locker`;updateTray();toast(`${slots.length} module${slots.length===1?'':'s'} saved. ${result.saved_files||0} reviewed code file${result.saved_files===1?'':'s'} came with them.`)}
+ catch(error){button.disabled=false;button.textContent='Save selection to locker';toast(error.message)}}
 function pin(item){pinned=item;openDock();
  $('#agentContext').innerHTML=`<span class="eyebrow">Pinned context</span><b>${safe(item.owner)} · ${safe(item.display)}</b><p>${safe(item.post)}</p>`;
  $('#wanderAgentInput').focus()}
@@ -203,7 +211,10 @@ document.querySelector('.wander-controls').onclick=event=>{const button=event.ta
  if(button.dataset.radius){radius=button.dataset.radius;document.querySelectorAll('[data-radius]').forEach(other=>other.classList.toggle('active',other===button))}
  resetStreet();scrollTo({top:0,behavior:'instant'})};
 $('#streetFeed').onclick=async event=>{const button=event.target.closest('button');if(!button)return;
- const item=garages.find(value=>value.id===(button.dataset.like||button.dataset.comment||button.dataset.pin||button.dataset.clone));if(!item)return;
+ const id=button.dataset.like||button.dataset.comment||button.dataset.pin||button.dataset.clone||button.dataset.saveModules||button.dataset.cancelSave;
+ const item=pool().find(value=>value.id===id);if(!item)return;
+ if(button.dataset.cancelSave){button.closest('.module-picker')?.remove();return}
+ if(button.dataset.saveModules){saveModules(item,button.closest('.garage-unit'));return}
  if(button.dataset.pin){pin(item);return}
  if(button.dataset.clone){clone(item,button);return}
  if(button.dataset.comment){const body=window.prompt(`Leave ${item.owner} a useful public note`);if(!body)return;

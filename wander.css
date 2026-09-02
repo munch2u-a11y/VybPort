@@ -85,6 +85,13 @@
 .post-actions .bolt{color:#f2c15a;border-color:rgba(242,193,90,.28)}
 .post-actions .clone.done{border-color:#4be6c8;color:#8ff3de}
 .post-ribbon{border:1px solid rgba(242,193,90,.5);border-radius:3px;padding:3px 6px;color:#f6dfa8;font:8px "DM Mono";text-transform:uppercase;letter-spacing:.9px}
+.module-picker{margin-top:11px;overflow:hidden;border:1px solid rgba(75,230,200,.32);border-radius:8px;background:#080e13;box-shadow:0 14px 34px rgba(0,0,0,.28)}
+.module-picker>header{display:flex;align-items:start;justify-content:space-between;gap:12px;padding:10px 11px;border-bottom:1px solid rgba(130,162,184,.16)}
+.module-picker>header>div{display:grid;gap:3px}.module-picker>header span{color:#6fcfbb;font:8px "DM Mono";text-transform:uppercase;letter-spacing:1px}.module-picker>header b{color:#dce9f1;font-size:11px}.module-picker>header button{border:0;background:none;color:#718796;font-size:18px}
+.module-picker-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-height:210px;overflow:auto}
+.module-picker-list label{display:grid;grid-template-columns:auto 4px minmax(0,1fr);align-items:center;gap:7px;padding:9px;border-right:1px solid rgba(130,162,184,.1);border-bottom:1px solid rgba(130,162,184,.1);cursor:pointer}
+.module-picker-list label:hover{background:rgba(75,230,200,.055)}.module-picker-list input{accent-color:#4be6c8}.module-picker-list i{width:3px;height:24px;border-radius:3px;background:#4be6c8;opacity:.5}.module-picker-list label>span{display:grid;min-width:0;gap:2px}.module-picker-list b{overflow:hidden;text-overflow:ellipsis;color:#b9cbd6;font-size:10px;white-space:nowrap}.module-picker-list small{color:#6e8391;font-size:8px}
+.module-picker>footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px}.module-picker>footer p{max-width:300px;margin:0;color:#657a87;font-size:8px;line-height:1.4}.module-picker>footer button{border:1px solid rgba(75,230,200,.38);border-radius:6px;padding:6px 9px;background:rgba(18,89,74,.26);color:#9bf5e2;font:9px "DM Mono"}.module-picker>footer button:disabled{opacity:.5}
 
 /* Block markers hung over the row when the walk crosses into a different kind of builder. */
 
@@ -143,4 +150,4 @@
 
 @media(max-width:1100px){.garage-unit{width:min(680px,72vw)}.district-sign{max-width:min(360px,52vw)}.street-feed{padding-left:clamp(0px,12vw,180px)}}
 @media(max-width:860px){.street-feed{perspective:1100px;padding:6vh 0 0}.garage-unit{width:100%}.district-sign{width:auto;max-width:100%;white-space:normal}.garage-unit{--z:calc((var(--near) - 1) * 380px + var(--pass) * 140px);--ry:calc(4deg + (1 - var(--near)) * 4deg);margin-bottom:40px;transform:translateZ(var(--z)) rotateY(var(--ry))}.district-sign{margin:0 0 16px;transform:translateZ(var(--z,0)) rotateY(var(--ry,4deg))}.unit-post{width:100%;margin-left:0}.street-hud{top:60px}.agent-sidecar{left:8px;right:8px;width:auto;max-height:64vh}}
-@media(max-width:600px){.unit-sign{letter-spacing:1.6px}.unit-bay{height:clamp(160px,46vw,240px)}.street-position{font-size:10px}.unit-prox{left:12px}.unit-plate{align-items:flex-start;text-align:left}}
+@media(max-width:600px){.unit-sign{letter-spacing:1.6px}.unit-bay{height:clamp(160px,46vw,240px)}.street-position{font-size:10px}.unit-prox{left:12px}.unit-plate{align-items:flex-start;text-align:left}.module-picker-list{grid-template-columns:1fr}}

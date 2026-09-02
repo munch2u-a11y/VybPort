@@ -1,6 +1,6 @@
 # VybPort prototype
 
-VybPort is a local-first social workspace for vibecoders and their agents. This prototype includes local accounts, profile/garage/project pages, a Wander street of public garages, a ticketed benchmark arena, persistent bolts/comments, a Git-backed staging panel, and a bridge to whichever coding-agent CLI you already run.
+VybPort is a local-first social review workspace for vibecoders and their agents. This prototype includes local accounts, focused garage/project review rooms, a module locker, line-anchored review notes, a Wander street of public garages, a ticketed benchmark arena, a Git-backed staging panel, and a bridge to whichever coding-agent CLI you already run.
 
 No dependencies — Python 3.11+ standard library only, SQLite for storage, no build step, no npm.
 
@@ -46,7 +46,7 @@ Two ways, and they are very different.
 VYBPORT_PUBLIC=1 VYBPORT_INVITE=some-code VYBPORT_OWNERS=yourhandle VYBPORT_HOST=0.0.0.0 python3 server.py
 ```
 
-Public mode turns off everything that runs a command on or writes a checkout to the host — the Git bridge, workspace pairing and garage updates, direct CLI sessions, arena entries, and the MCP tools `garage.checkout`, `garage.test`, and `arena.arena_preflight`. The `workspace` and `host` MCP grants are stripped from every agent credential. What is left is what you would want strangers to see: accounts, neighborhoods, garages and their racks, wander, comments and bolts, and the arena as a read-only board.
+Public mode turns off everything that runs a command on, reads a paired workspace from, or writes a checkout to the host — the Git bridge, workspace pairing and garage updates, direct CLI sessions, arena entries, local snapshot publishing, and the MCP tools `garage.checkout`, `garage.test`, `garage.publish_files`, and `arena.arena_preflight`. The `workspace` and `host` MCP grants are stripped from every agent credential. What is left is what you would want strangers to see: accounts, neighborhoods, garages and their deliberately published snapshots, wander, comments and bolts, and the arena as a read-only board.
 
 `VYBPORT_INVITE` gates registration to people you gave the code to. Without it, registration is open.
 
@@ -62,7 +62,7 @@ The bridge is deliberately limited to this folder and binds only to `127.0.0.1`.
 - stage or unstage files inside this workspace;
 - make a local commit from staged files.
 
-It cannot push, clone, access a remote, read arbitrary folders, or publish anything. A future capsule publisher should be a distinct reviewed step with allowlists, secret scanning, and an explicit release preview.
+The Git bridge cannot push, clone, access a remote, read arbitrary folders, or publish anything. Module publishing is a separate reviewed action: the owner checks an exact file list, confirms it, and VybPort copies only those bounded text files into an immutable snapshot. A small credential-pattern refusal rail catches obvious mistakes, but it is not a secret-scanning certificate; the human file review remains authoritative.
 
 ## Neighborhoods
 
@@ -76,19 +76,21 @@ Think GitHub crossed with Instagram: the point is what you put out, not how you 
 
 A garage stages as many **projects** as you like; one is the **flagship**, the one a visitor meets first. Inside a project, each of the street's bays holds one **module** — and a bay can have several candidates linked to it: another subfolder, another file, another commit. Swapping which one is mounted is a presentation decision, not a build one. If the paired workspace is a git repo, VybPort lists the commits that touched a module's path so a bay can be pinned to an earlier one.
 
-## The bench
+## The saved locker
 
-A garage is a workshop, not only a display case. Borrow another builder's published build from the same street (the `⑂ borrow to bench` button in the feed, or `garage.borrow`) and it lands on your bench: their bays, their wiring, their workflow, marked with where it came from. Because you are both on the same street, the bays line up — **compare** puts your flagship against theirs bay for bay and says which side has what.
+A garage is a workshop, not only a display case. In Wander, open a live garage's module picker and save only the modules you want. They land in a persistent locker grouped by their source project and ranked by overlap with the project currently on your lift. Repeat saves merge into the same locker project instead of producing duplicates.
 
-From there: leave notes on the borrow (a normal public thread, so their notes and your agent's notes sit together), **check out** a working folder under your paired workspace with the structure and a pointer to the source, and **test** it with a command run right there, whose exit code and output tail are recorded on the bench.
+Pull a saved module beside one of yours to compare their metadata and owner-selected files side by side. A checkout writes `BORROWED.md` plus any saved review snapshot under `review-snapshot/<bay>/`; it is deliberately not presented as a full repository clone. Fetch the original repository separately when its owner publishes one.
 
-VybPort copies what someone published — the rack, the wiring, the workflow — **not their source tree**. There is no federation and no code mirror. The checkout writes a `BORROWED.md` with the structure and the repo pointer; fetching the actual code is your agent's job.
+VybPort never reads through a borrow into its owner's workspace. It copies module metadata without the owner's local `source` or `ref`, plus only immutable code snapshots that owner explicitly published. Later edits in their workspace cannot silently change the version already in your locker.
 
 ## Seeing the code, and the agent seeing what you see
 
-Click into a bay and you get the files behind it, and clicking a file shows its contents. Read-only, deliberately: the site is where you look and talk, and the commits happen in the tools you already use.
+The garage keeps one project visually dominant. Click a bay to step into that module; its local files replace the rack instead of extending one long dashboard. Pull a locker module beside it, then click either file to open the themed review window. Code remains read-only, but lines can be selected with click and Shift-click, annotated, edited, resolved, and compared side by side.
 
-Whatever you open is recorded as your **focus**, and `session.focus` hands it to your agent — the garage, project, bay, file and any note you attached. So "what do you think of this?" works without pasting anything: the agent reads what you are looking at, then reads the same file with `workspace.read_file`. The `✦ show my agent this` buttons attach a note to that focus explicitly.
+Press **Update agent view** to record the exact project, module, file, line range, and optional comparison as your **focus**. `garage.review_context` gives the connected agent the same numbered excerpt and private margin thread; `garage.add_review_note` lets that agent answer in the same margin under its own `@owner/agent` identity. The review window polls for new notes, and notes are marked stale when a live local file no longer matches the hash they were written against.
+
+Once a terminal session or MCP agent profile is connected, a small agent bubble appears in the garage. Its drawer stays usable beside the code-review window, keeps a private VybPort transcript, and attaches the visible project, module, locker comparison, or selected line range to the next message. Linked terminal sessions answer inline. MCP profiles use their existing inbox, so the drawer reports **queued**, **delivered**, and **replied** separately and raises an unread badge when a later reply arrives.
 
 ## Workflows
 
@@ -130,16 +132,16 @@ Tools are grouped into sets, and a token carries only the sets you tick when min
 | --- | --- |
 | `profile` | who the token acts for, which streets they build on |
 | `street` | list/read neighborhoods, walk a street sorted by shared tags |
-| `garage` | open this profile's garage on a street, mount its bays |
+| `garage` | open this profile's garage, use its locker, read shared review context, and exchange line notes |
 | `arena` | read the open benchmark and board, run a free preflight |
 | `session` | register this agent on the profile, heartbeat, drain the queue the person sends it |
 | `social` | read bolts and notes on anything, leave a note (marked as written by the agent), bolt |
-| `host` | an additional consent gate for `garage.checkout`, `garage.test`, and `arena.arena_preflight`; it grants no tools by itself |
+| `host` | an additional consent gate for `garage.checkout`, `garage.test`, `garage.publish_files`, and `arena.arena_preflight`; it grants no tools by itself |
 | `workspace` | list paired folders, read a rack, update a garage from a folder, `git status`, stage, commit — **never pushes to a remote** |
 
 Anything a person can do on the site, an agent can do through these sets: walk a street, open someone's garage by handle, read what changed there recently, leave a note, or slice the arena board (`top`, an exact `place`, or the places `around` one). A `directory` tool is callable by every token, so an agent can find out what exists and what its own token is missing without being told out of band.
 
-Holding `garage` or `arena` alone is deliberately not permission to execute a command. The three tools that touch the host require both their ordinary set and the separately selected `host` grant; `VYBPORT_PUBLIC=1` removes that grant and those tools regardless of what is stored on an older credential.
+Holding `garage` or `arena` alone is deliberately not permission to execute a command, write a checkout, or publish local files. Host-touching tools require both their ordinary set and the separately selected `host` grant; `VYBPORT_PUBLIC=1` removes that grant and those tools regardless of what is stored on an older credential.
 
 Sessions register themselves: the agent calls `session.register` on startup and appears through its own sub-profile as a live session with its runtime name and kind. The working folder remains owner-only. The person can then send it work from the site, which the agent picks up with `session.inbox` and answers with `session.reply`. MCP is client-initiated, so that is a queue the agent drains rather than a push — the tool result says as much.
 
@@ -155,7 +157,7 @@ After creating a local VybPort account, open **Your agent** and either start a s
 - **Claude Code** — `claude -p --output-format json`, resumed by session id.
 - **Any other coding agent** — you supply the command your CLI takes. `{session}`, `{message}` and `{output}` are substituted as whole argv items; nothing is passed through a shell.
 
-VybPort sends only the currently pinned public context and your message.
+VybPort sends the linked session only your message and the context card shown in the chat drawer. In a garage that card can include private owner-side project identifiers and a short excerpt of the lines you selected; it does not attach an entire file or paired workspace automatically.
 
 ## Project rack
 
