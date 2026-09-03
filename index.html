@@ -33,6 +33,8 @@
       <header class="profile-canvas-rail">
         <div><span class="profile-dot"></span><b id="profileName">Loading profile…</b><span id="profileHandle"></span></div>
         <div class="profile-frame-links">
+          <button class="profile-garage-button" id="profileGaragesToggle" type="button" aria-controls="profileGarageDialog" aria-expanded="false" hidden><span>My garages</span><b id="profileGarageCount">0</b></button>
+          <a class="profile-new-garage" id="profileNewGarage" href="./garage.html?new=1" hidden>＋ open new</a>
           <span class="sandbox-badge" title="This page cannot read VybPort account, agent, or workspace data">isolated canvas</span>
           <a id="profileGarageLink" href="./wander.html">find their garage →</a>
         </div>
@@ -46,6 +48,13 @@
         <span>VybPort navigation, garages, credentials, and settings remain outside the custom page.</span>
       </footer>
     </main>
+
+    <dialog class="profile-garage-dialog" id="profileGarageDialog">
+      <form method="dialog"><button class="dialog-close" aria-label="Close garage selector">×</button></form>
+      <header><span class="eyebrow">Your workshop network</span><h2>Choose a garage</h2><p>Each street has its own garage, projects, module layout, locker, and local-agent lift.</p></header>
+      <div class="profile-garage-grid" id="profileGarageGrid"><p>Loading your garages…</p></div>
+      <footer><span>One account · one garage per neighborhood</span><a class="button solid" href="./garage.html?new=1">＋ Open another garage</a></footer>
+    </dialog>
 
     <dialog class="profile-settings" id="profileSettingsDialog">
       <form method="dialog"><button class="dialog-close" aria-label="Close settings">×</button></form>

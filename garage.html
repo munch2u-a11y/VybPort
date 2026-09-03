@@ -32,6 +32,13 @@
     </header>
 
     <main class="workshop-page">
+      <section class="garage-network panel-shell" id="garageNetwork">
+        <div class="garage-network-heading"><span class="eyebrow">Your workshop network</span><b id="garageNetworkSummary">Loading garages…</b></div>
+        <div class="garage-network-street"><span class="eyebrow">Current street</span><div class="hood-switcher" id="hoodSwitcher"></div></div>
+        <nav class="garage-selector" id="garageSelector" aria-label="Choose one of your garages"></nav>
+        <button class="button solid garage-open-button" id="openGarageChooser" type="button">＋ Open garage</button>
+      </section>
+
       <section class="open-garage" id="openGarage" hidden>
         <div>
           <span class="eyebrow">No garage here yet</span>
@@ -49,7 +56,6 @@
       <section class="garage-studio" id="garageStudio" hidden>
         <header class="studio-header">
           <div class="studio-identity">
-            <div class="hood-switcher" id="hoodSwitcher"></div>
             <div class="studio-title-line">
               <div><span class="eyebrow">Staging workshop</span><h1 id="garageName">Your garage</h1></div>
               <span class="privacy-chip">local work stays local</span>
@@ -192,6 +198,13 @@
           <p class="manage-fineprint">A local commit is not a public release. Publishing a module snapshot is a separate, explicit review action.</p>
         </section>
       </div>
+    </dialog>
+
+    <dialog class="garage-chooser-dialog" id="garageChooserDialog">
+      <form method="dialog"><button class="dialog-close" aria-label="Close garage chooser">×</button></form>
+      <header><span class="eyebrow">Garage network</span><h2>Open or switch workshops</h2><p>A garage belongs to one neighborhood. Choose an existing door, or claim an empty street and name the new workshop there.</p></header>
+      <div class="garage-chooser-list" id="garageChooserList"></div>
+      <footer><a class="text-button" href="./neighborhoods.html">Browse neighborhood details →</a><span id="garageChooserCount"></span></footer>
     </dialog>
 
     <dialog class="new-project-dialog" id="newProjectDialog">

@@ -57,12 +57,17 @@ assert.ok(garageHtml.includes('id="moduleLoaderDialog"') && garageHtml.includes(
 assert.ok(rackSource.includes("addEventListener('dblclick'") && rackSource.includes("application/x-vyb-module"), "rack modules must open on double click and move by drag/drop");
 assert.ok(garageSource.includes("/module-candidates") && garageSource.includes("/module-layout"), "Garage must load empty bays and persist module moves");
 assert.ok(garageSource.includes("application/x-vyb-locker-module"), "locker modules must drag into adjacent comparison");
+assert.ok(garageHtml.includes('id="garageNetwork"') && garageHtml.includes('id="garageSelector"') && garageHtml.includes('id="garageChooserDialog"'), "Garage must always expose switching and creation controls");
+assert.ok(garageHtml.indexOf('id="hoodSwitcher"') < garageHtml.indexOf('id="openGarage"'), "the street switcher must remain visible even when no garage exists there");
+assert.ok(garageSource.includes("renderGarageNetwork") && garageSource.includes("data-open-street"), "the Garage hub must distinguish existing doors from streets available to open");
 
 const profileHtml = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const profileSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
 assert.ok(profileHtml.includes('id="profileCanvas"') && profileHtml.includes('sandbox="allow-scripts"'), "the public profile must be an isolated user-authored canvas");
 assert.ok(profileHtml.includes('id="profileSettingsDialog"') && !profileHtml.includes('id="garageGrid"'), "project organization belongs in Garage, outside the public profile");
 assert.ok(profileSource.includes("/api/profile/page") && profileSource.includes("'appearance'"), "owners and appearance-scoped agents must be able to update the public page");
+assert.ok(profileHtml.includes('id="profileGaragesToggle"') && profileHtml.includes('id="profileNewGarage"') && profileHtml.includes('id="profileGarageDialog"'), "the permanent profile frame must expose the owner's garage hub and creation path");
+assert.ok(profileSource.includes("loadProfileGarages") && profileSource.includes("/api/garages?mine=1"), "the profile garage hub must render real owner garages");
 
 const wanderHtml = fs.readFileSync(path.join(__dirname, "..", "wander.html"), "utf8");
 const wanderSource = fs.readFileSync(path.join(__dirname, "..", "wander.js"), "utf8");

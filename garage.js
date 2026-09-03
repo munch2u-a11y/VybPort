@@ -5,7 +5,7 @@ const toast=text=>{const node=$('#toast');node.textContent=text;node.classList.a
 async function api(path,options={}){const response=await fetch(path,{headers:{'Content-Type':'application/json'},...options});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.error||'VybPort request failed');return data}
 const agentState=window.VybAgentState;
 
-let hood=null,garage=null,mine=[],project=null,activeModule=null,comparison=null,workspaces=[],gitState=null,currentView='modules';
+let hood=null,garage=null,mine=[],neighborhoods=[],project=null,activeModule=null,comparison=null,workspaces=[],gitState=null,currentView='modules';
 let selectedSlot=null,moduleLoaderSlot='',moduleCandidates=[],dragProjectId=null;
 let linkedAgents=[],agentProfiles=[],localAgentProviders=[],localAgentBridge=false,activeAgentConnection='',agentHistory=[],agentHistoryPrimed=false,agentSending=false,agentUnread=0;
 const fileLists=new Map();
@@ -238,6 +238,7 @@ async function sendGarageAgent(event){
 
 function syncUrl(){
  const params=new URLSearchParams(location.search);if(hood)params.set('n',hood.slug);
+ params.delete('new');params.delete('open');
  if(project)params.set('project',project.id);else params.delete('project');
  if(activeModule)params.set('module',activeModule.slot);else params.delete('module');
  history.replaceState(null,'',`${location.pathname}?${params}`)
@@ -252,6 +253,23 @@ function overlapScore(saved){
  return score
 }
 
+function garageLink(item){return VybHood.link('garage.html',item.neighborhood)}
+function renderGarageChooser(){
+ const list=$('#garageChooserList'),owned=new Map(mine.map(item=>[item.neighborhood,item])),available=neighborhoods.filter(item=>!owned.has(item.slug));
+ list.innerHTML=neighborhoods.map(street=>{const existing=owned.get(street.slug),total=street.slots?.length||0;
+  return existing
+   ?`<a class="garage-choice owned${garage?.id===existing.id?' current':''}" style="--hood:${street.hue}" href="${garageLink(existing)}"><i></i><span><b>${safe(existing.name)}</b><small>${safe(street.name)} · ${existing.projects.length} project${existing.projects.length===1?'':'s'}</small></span><em>${garage?.id===existing.id?'open now':'enter →'}</em></a>`
+   :`<button class="garage-choice available${hood?.slug===street.slug&&!garage?' current':''}" style="--hood:${street.hue}" type="button" data-open-street="${safe(street.slug)}"><i></i><span><b>Open on ${safe(street.name)}</b><small>${total} shared bays · ${safe((street.tags||[]).slice(0,3).join(' · '))}</small></span><em>＋ claim street</em></button>`}).join('')||'<p class="empty-copy">No neighborhoods are available yet.</p>';
+ $('#garageChooserCount').textContent=`${mine.length} open · ${available.length} available`
+}
+
+function renderGarageNetwork(){
+ if(!hood)return;const selector=$('#garageSelector');
+ $('#garageNetworkSummary').textContent=mine.length?`${mine.length} garage${mine.length===1?'':'s'} · choose a door, then choose a project`:'No garages yet · open your first workshop';
+ selector.innerHTML=mine.length?mine.map(item=>`<a class="garage-select-chip${garage?.id===item.id?' current':''}" style="--hood:${item.hue}" href="${garageLink(item)}"${garage?.id===item.id?' aria-current="page"':''}><i></i><span><b>${safe(item.name)}</b><small>${safe(item.neighborhood_name)}</small></span><em>${garage?.id===item.id?'on lift':item.projects.length}</em></a>`).join(''):'<span class="garage-selector-empty">Your garage doors will stay here.</span>';
+ $('#openGarageChooser').textContent=mine.length?'＋ Open garage':'＋ Open first garage';renderGarageChooser()
+}
+
 function refreshGarage(next,{keepModule=true}={}){
  const projectId=project?.id,slot=keepModule?activeModule?.slot:null,selected=selectedSlot;
  garage=next;project=garage.projects.find(item=>item.id===projectId)||garage.flagship||garage.projects[0]||null;
@@ -263,7 +281,8 @@ function refreshGarage(next,{keepModule=true}={}){
 
 function renderStudio(){
  const hasGarage=Boolean(garage);$('#garageStudio').hidden=!hasGarage;$('#openGarage').hidden=hasGarage;
- if(!hasGarage){$('#openTitle').textContent=`Open a workshop on ${hood.name}`;$('#openTags').innerHTML=(hood.tags||[]).map(tag=>`<label><input type="checkbox" value="${safe(tag)}"> ${safe(tag)}</label>`).join('');return}
+ renderGarageNetwork();
+ if(!hasGarage){$('#openTitle').textContent=`Open a workshop on ${hood.name}`;$('#openNote').textContent=`This becomes your ${hood.name} garage. Its ${hood.slots.length} shared bays make projects on this street easy to compare.`;$('#openName').placeholder=`My ${hood.name} garage`;$('#openTags').innerHTML=(hood.tags||[]).map(tag=>`<label><input type="checkbox" value="${safe(tag)}"> ${safe(tag)}</label>`).join('');return}
  if(!project||!garage.projects.some(item=>item.id===project.id))project=garage.flagship||garage.projects[0]||null;
  $('#garageName').textContent=garage.name;$('#garageTagline').textContent=garage.tagline||`A staging workshop on ${hood.name}.`;
  $('#garageTags').innerHTML=(garage.tags||[]).map(tag=>`<span>${safe(tag)}</span>`).join('');
@@ -571,16 +590,20 @@ async function reorderProject(dragged,target,before){
 }
 
 async function load(){
+ neighborhoods=await VybHood.list();
  const active=await VybHood.mountSwitcher($('#hoodSwitcher'),{onChange:slug=>{location.search=`?n=${encodeURIComponent(slug)}`}});if(!active){toast('The local VybPort service is not answering.');return}
  hood=(await api(`/api/neighborhoods/${encodeURIComponent(active.slug)}`)).neighborhood;
  try{mine=(await api('/api/garages?mine=1')).garages}catch{mine=[]}
  garage=mine.find(item=>item.neighborhood===hood.slug)||null;
  if(garage){const params=new URLSearchParams(location.search),wanted=Number(params.get('project'));project=garage.projects.find(item=>item.id===wanted)||garage.flagship||garage.projects[0];const slot=params.get('module');activeModule=moduleFor(project,slot);selectedSlot=activeModule?.slot||null}
- renderStudio();await Promise.all([loadWorkspaces(),loadGarageAgents()]);if(activeModule)await loadOwnFiles(project,activeModule);refreshGit();
+ renderStudio();if(new URLSearchParams(location.search).get('new')==='1')dialogOpen($('#garageChooserDialog'));await Promise.all([loadWorkspaces(),loadGarageAgents()]);if(activeModule)await loadOwnFiles(project,activeModule);refreshGit();
  const params=new URLSearchParams(location.search);if(activeAgentConnection&&(agentState.isOpen()||params.get('agent')==='open'))await openGarageAgent()
 }
 
-$('#openForm').onsubmit=async event=>{event.preventDefault();try{const {user}=await api('/api/auth/me');if(!user){location.href='./register.html';return}const result=await api('/api/garages',{method:'POST',body:JSON.stringify({neighborhood:hood.slug,name:$('#openName').value.trim(),tagline:$('#openTagline').value.trim(),tags:[...document.querySelectorAll('#openTags input:checked')].map(input=>input.value)})});mine=(await api('/api/garages?mine=1')).garages;garage=result.garage;project=garage.flagship||garage.projects[0];renderStudio();toast(`${garage.name} is open.`)}catch(error){toast(error.message)}};
+$('#openForm').onsubmit=async event=>{event.preventDefault();try{const {user}=await api('/api/auth/me');if(!user){location.href='./register.html';return}const result=await api('/api/garages',{method:'POST',body:JSON.stringify({neighborhood:hood.slug,name:$('#openName').value.trim(),tagline:$('#openTagline').value.trim(),tags:[...document.querySelectorAll('#openTags input:checked')].map(input=>input.value)})});mine=(await api('/api/garages?mine=1')).garages;neighborhoods=await VybHood.list(true);await VybHood.mountSwitcher($('#hoodSwitcher'),{slug:hood.slug,onChange:slug=>{location.search=`?n=${encodeURIComponent(slug)}`}});garage=result.garage;project=garage.flagship||garage.projects[0];renderStudio();toast(`${garage.name} is open.`)}catch(error){toast(error.message)}};
+
+$('#openGarageChooser').onclick=()=>dialogOpen($('#garageChooserDialog'));
+$('#garageChooserList').onclick=event=>{const button=event.target.closest('[data-open-street]');if(!button)return;const slug=button.dataset.openStreet;if(slug===hood?.slug&&!garage){$('#garageChooserDialog').close();$('#openGarage').scrollIntoView({behavior:'smooth',block:'center'});$('#openName').focus();return}location.href=`./garage.html?n=${encodeURIComponent(slug)}&open=1`};
 
 $('#projectList').onclick=event=>{const button=event.target.closest('[data-project]');if(button)putProjectOnLift(button.dataset.project)};
 $('#projectList').ondragstart=event=>{const button=event.target.closest('[data-project]');if(!button)return;dragProjectId=Number(button.dataset.project);button.classList.add('dragging');event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('application/x-vyb-project',String(dragProjectId))};

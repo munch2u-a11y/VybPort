@@ -5,6 +5,7 @@ async function vybApi(path,options={}){const response=await fetch(path,{headers:
 
 const agentState=window.VybAgentState;
 let viewer=null,profile=null,targetHandle='',currentProfileHtml='';
+let profileGarages=[],profileHoods=[];
 let agentConnections=[],agentHistoryRequest=0,agentSending=false;
 
 function requestedHandle(){return (new URLSearchParams(location.search).get('user')||'').trim().replace(/^@/,'').toLowerCase()}
@@ -15,7 +16,7 @@ function setProfileFrame(){
  const owner=Boolean(viewer&&viewer.handle===profile.handle);
  $('#profileGarageLink').href=owner?'./garage.html':`./wander.html?builder=${encodeURIComponent(profile.handle)}`;$('#profileGarageLink').textContent=owner?'open my garage →':'find their garage →';
  const canvas=$('#profileCanvas');$('#profileCanvasLoading').classList.remove('ready');canvas.src=canvasUrl();canvas.title=`@${profile.handle}'s public VybPort page`;
- $('#profileSettingsToggle').hidden=!owner;$('#agentDockToggle').hidden=!viewer;
+ $('#profileSettingsToggle').hidden=!owner;$('#profileGaragesToggle').hidden=!owner;$('#profileNewGarage').hidden=!owner;$('#agentDockToggle').hidden=!viewer;
  $('#accountLink').textContent=viewer?viewer.display_name.slice(0,1).toUpperCase():'+';$('#accountLink').href=viewer?'./register.html':'./register.html';
  if(owner){currentProfileHtml=profile.html;$('#profileHtml').value=currentProfileHtml;$('#accountIdentity').textContent=`${viewer.display_name} · @${viewer.handle}`;updateHtmlCount()}
 }
@@ -23,6 +24,24 @@ function setProfileFrame(){
 function missingProfile(message){
  targetHandle=requestedHandle()||'profile';$('#profileName').textContent='Profile unavailable';$('#profileHandle').textContent=`@${targetHandle}`;$('#profileByline').textContent=`@${targetHandle}`;
  $('#profileCanvasLoading').classList.add('ready');$('#profileCanvas').srcdoc=`<!doctype html><style>html,body{height:100%;margin:0;background:#080b0e;color:#8799a2;font:14px ui-monospace,monospace}body{display:grid;place-content:center;text-align:center}b{color:#d6e1e5}</style><p><b>@${safe(targetHandle)}</b><br>${safe(message)}</p>`
+}
+
+function garageHref(garage){return `./garage.html?n=${encodeURIComponent(garage.neighborhood)}`}
+function renderProfileGarages(){
+ const grid=$('#profileGarageGrid'),hoodBySlug=new Map(profileHoods.map(item=>[item.slug,item])),owned=new Set(profileGarages.map(item=>item.neighborhood)),available=profileHoods.filter(item=>!owned.has(item.slug));
+ $('#profileGarageCount').textContent=String(profileGarages.length);
+ const cards=profileGarages.map(garage=>{const street=hoodBySlug.get(garage.neighborhood),total=street?.slots?.length||Math.max(garage.modules?.length||0,1),mounted=garage.modules?.length||0,projects=garage.projects?.length||0;
+  return `<a class="profile-garage-card" style="--hood:${garage.hue}" href="${garageHref(garage)}"><span>${safe(garage.neighborhood_name)}</span><b>${safe(garage.name)}</b><p>${safe(garage.tagline||'A private staging workshop.')}</p><div>${Array.from({length:total},(_,index)=>`<i${index<mounted?' class="on"':''}></i>`).join('')}</div><footer><small>${projects} project${projects===1?'':'s'} · ${mounted}/${total} bays</small><em>open →</em></footer></a>`}).join('');
+ const open=`<a class="profile-garage-card open" href="./garage.html?new=1"><span>Another neighborhood</span><b>＋ Open a garage</b><p>${available.length?`${available.length} street${available.length===1?'':'s'} still available.`:'You already have a workshop on every street.'}</p><footer><small>Choose the street first</small><em>continue →</em></footer></a>`;
+ grid.innerHTML=cards+open;
+ let remembered='';try{remembered=localStorage.getItem('vybport.street')||''}catch{}
+ const preferred=profileGarages.find(item=>item.neighborhood===remembered)||profileGarages[0];
+ $('#profileGarageLink').href=preferred?garageHref(preferred):'./garage.html?new=1';$('#profileGarageLink').textContent=preferred?'open my garage →':'open my first garage →';
+ $('#profileNewGarage').textContent=profileGarages.length?'＋ open new':'＋ open first'
+}
+async function loadProfileGarages(){
+ try{const [garageData,hoodData]=await Promise.all([vybApi('/api/garages?mine=1'),vybApi('/api/neighborhoods')]);profileGarages=garageData.garages||[];profileHoods=hoodData.neighborhoods||[];renderProfileGarages()}
+ catch(error){$('#profileGarageGrid').innerHTML=`<p class="profile-garage-empty">${safe(error.message)}</p>`}
 }
 
 async function loadProfile(){
@@ -37,12 +56,14 @@ async function loadProfile(){
   if(!profile){missingProfile(error.message);return}
  }
  setProfileFrame();
- if(viewer){await refreshAgents();if(viewer.handle===targetHandle)await loadTokens()}
+ if(viewer){await refreshAgents();if(viewer.handle===targetHandle)await Promise.all([loadTokens(),loadProfileGarages()])}
  const params=new URLSearchParams(location.search);if(viewer&&(agentState.isOpen()||params.get('agent')==='open'))openAgentDock();if(viewer?.handle===targetHandle&&params.get('settings'))openSettings(params.get('settings'))
 }
 
 $('#profileCanvas').addEventListener('load',()=>$('#profileCanvasLoading').classList.add('ready'));
 $('#shareProfile').onclick=async()=>{const link=new URL('./index.html',location.href);link.searchParams.set('user',targetHandle);try{await navigator.clipboard.writeText(link.href);toast('Profile link copied.')}catch{toast(link.href)}};
+$('#profileGaragesToggle').onclick=()=>{const dialog=$('#profileGarageDialog');if(!dialog.open)dialog.showModal();$('#profileGaragesToggle').setAttribute('aria-expanded','true')};
+$('#profileGarageDialog').addEventListener('close',()=>$('#profileGaragesToggle').setAttribute('aria-expanded','false'));
 
 function openSettings(tab='page'){$('#profileSettingsDialog').showModal();selectSettingsTab(['page','agents','account'].includes(tab)?tab:'page')}
 function selectSettingsTab(tab){document.querySelectorAll('[data-settings-tab]').forEach(button=>button.classList.toggle('active',button.dataset.settingsTab===tab));document.querySelectorAll('[data-settings-panel]').forEach(panel=>{const active=panel.dataset.settingsPanel===tab;panel.hidden=!active;panel.classList.toggle('active',active)});if(tab==='agents')loadTokens()}
