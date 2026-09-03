@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="description" content="VybPort on your phone: keep talking to the agent already running on your workstation." />
+    <meta name="theme-color" content="#05070a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="./mobile.webmanifest" />
+    <title>VybPort remote</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./mobile.css" />
+  </head>
+  <body class="m-body">
+    <!-- Signed out: the only thing the phone can do is get a session. -->
+    <section class="m-gate" id="gate" hidden>
+      <div class="gate-mark">V</div>
+      <h1>VybPort remote</h1>
+      <p>Sign in to reach the agent sessions already running on your workstation.</p>
+      <form id="gateForm">
+        <label><span>Handle</span><input id="gateHandle" autocomplete="username" autocapitalize="none" required /></label>
+        <label><span>Password</span><input id="gatePassword" type="password" autocomplete="current-password" required /></label>
+        <button class="m-button solid" type="submit">Sign in</button>
+      </form>
+      <p class="gate-note" id="gateNote"></p>
+    </section>
+
+    <div class="m-app" id="app" hidden>
+      <header class="m-top">
+        <button class="m-back" id="back" hidden aria-label="Back">‹</button>
+        <div><span class="m-kicker" id="topKicker">Remote</span><b id="topTitle">Your agent</b></div>
+        <button class="m-icon" id="refresh" aria-label="Refresh">↻</button>
+      </header>
+
+      <!-- What you are looking at, carried onto whatever you send next. -->
+      <div class="m-context" id="contextBar" hidden><i>✦</i><span id="contextText"></span><button id="clearContext" aria-label="Clear context">×</button></div>
+
+      <main class="m-main">
+        <section class="m-view" id="viewAgent">
+          <div class="m-pick"><label for="connSelect">Session</label><select id="connSelect"></select></div>
+          <p class="m-note" id="connNote"></p>
+          <div class="m-thread" id="thread"></div>
+        </section>
+
+        <section class="m-view" id="viewGarage" hidden>
+          <div class="m-pick"><label for="garageSelect">Garage</label><select id="garageSelect"></select></div>
+          <div class="m-pick"><label for="projectSelect">Project</label><select id="projectSelect"></select></div>
+          <div class="m-list" id="garageList"></div>
+        </section>
+
+        <section class="m-view" id="viewCompare" hidden>
+          <div class="m-pick"><label for="mineSelect">Yours</label><select id="mineSelect"></select></div>
+          <div class="m-pick"><label for="theirsSelect">From the locker</label><select id="theirsSelect"></select></div>
+          <div class="m-swap" id="swap" hidden role="tablist">
+            <button data-side="mine" class="active" role="tab">Yours</button>
+            <button data-side="theirs" role="tab">Theirs</button>
+            <button data-side="drift" role="tab">Drift</button>
+          </div>
+          <div class="m-pick" id="fileRow" hidden><label for="fileSelect">File</label><select id="fileSelect"></select></div>
+          <div class="m-code" id="compareCode"></div>
+        </section>
+      </main>
+
+      <!-- The composer follows you: on a phone the whole point is talking to the agent about
+           whatever is on screen, so it stays reachable from every tab. -->
+      <form class="m-compose" id="compose">
+        <textarea id="composeInput" rows="1" placeholder="Ask your agent…" enterkeyhint="send"></textarea>
+        <button class="m-send" id="send" aria-label="Send">↑</button>
+      </form>
+
+      <nav class="m-tabs" id="tabs">
+        <button data-view="agent" class="active"><i>◆</i>Agent</button>
+        <button data-view="garage"><i>▤</i>Garage</button>
+        <button data-view="compare"><i>⇄</i>Compare</button>
+      </nav>
+    </div>
+
+    <div id="toast" class="m-toast"></div>
+    <script src="./agent-state.js"></script>
+    <script src="./mobile.js"></script>
+  </body>
+</html>

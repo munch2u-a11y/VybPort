@@ -44,7 +44,7 @@ PREFLIGHT_TIMEOUT, SCORED_TIMEOUT = 60, 240
 # gitignored data/owners file explicitly; with neither set, the first local account is the fallback.
 # Only these get served as files. Everything else — the database, the source, dotfiles, directory
 # listings — is not web-readable, whether or not the port is only on loopback.
-STATIC_SUFFIXES = {".html", ".css", ".js", ".jpg", ".jpeg", ".png", ".webp", ".svg", ".ico", ".woff2"}
+STATIC_SUFFIXES = {".html", ".css", ".js", ".jpg", ".jpeg", ".png", ".webp", ".svg", ".ico", ".woff2", ".webmanifest"}
 STATIC_DIRS = {"images", "skins"}
 # Hardened mode for an instance other people can reach. Everything that runs a command is off.
 PUBLIC_MODE = os.environ.get("VYBPORT_PUBLIC") == "1"

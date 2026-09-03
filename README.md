@@ -76,6 +76,39 @@ Think GitHub crossed with Instagram: the point is what you put out, not how you 
 
 A garage stages as many **projects** as you like; one is the **flagship**, the one a visitor meets first. Inside a project, each of the street's bays holds one **module** — and a bay can have several candidates linked to it: another subfolder, another file, another commit. Swapping which one is mounted is a presentation decision, not a build one. If the paired workspace is a git repo, VybPort lists the commits that touched a module's path so a bay can be pinned to an earlier one.
 
+## On your phone
+
+`mobile.html` is a phone-shaped client over the same endpoints the desktop rooms use — no second
+API, no separate account. Add it to your home screen and it opens standalone. Three tabs:
+
+- **Agent** — the sessions already connected to this account, MCP profiles and linked terminal
+  sessions alike. A terminal session answers inline; an MCP profile takes what you send into its
+  private inbox and the thread re-reads itself while you watch, so a reply appears when that agent
+  next checks in. Which session is selected is shared with the desktop, so the one you were talking
+  to at your workstation is the one waiting on the phone.
+- **Garage** — your garages, their projects, the bays, and the files inside a bay. Opening a file
+  also sets your shared focus, so the agent knows what you are reading.
+- **Compare** — a phone cannot hold two files side by side, so the workstation's side-by-side review
+  becomes a switch: **Yours**, **Theirs**, and **Drift**, which marks the lines in your copy that do
+  not appear anywhere in theirs. That is a smell test for where two takes on the same bay parted
+  company, not a real diff.
+
+Whatever you are looking at rides along with the next message you send, on every tab.
+
+### Reaching it from the phone
+
+The server binds `127.0.0.1` by default, so nothing reaches it from your phone until you decide how.
+**This matters more here than usual: VybPort deliberately runs commands on the machine it is on** —
+agent CLIs, arena entries, project tests. Handing that to a network is not like exposing a blog.
+
+- **Best: a tunnel.** `ssh -L 4173:127.0.0.1:4173 you@workstation` from a phone SSH client, or a
+  private mesh network such as Tailscale. The server keeps listening only on loopback.
+- **`VYBPORT_HOST=0.0.0.0`** puts it on your LAN. Only on a network you actually trust: your account
+  password becomes the only thing between anyone else on that network and a shell on your machine.
+- **`VYBPORT_PUBLIC=1`** switches off every command-running path, which is the safe posture but also
+  turns off the direct terminal-session bridge. MCP profiles still queue and deliver, so the phone
+  still works for planning with an agent — it just cannot drive a local CLI.
+
 ## Start on Night courier
 
 Every other street on VybPort assumes you already know what you are building. **Night courier bots**
