@@ -21,6 +21,7 @@ import sqlite3
 import subprocess
 import tempfile
 import time
+from html import escape
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -56,6 +57,7 @@ AGENT_TOKEN_DAYS = 90
 MAX_AGENT_TOKEN_DAYS = 365
 MAX_ACTIVE_AGENT_PROFILES = 25
 MAX_JSON_BODY = 128 * 1024
+MAX_PROFILE_HTML_BYTES = 96 * 1024
 MAX_PUBLISHED_FILES = 24
 MAX_PUBLISHED_FILE_BYTES = 200_000
 MAX_PUBLISHED_TOTAL_BYTES = 800_000
@@ -75,7 +77,85 @@ def slot(key: str, label: str, role: str, hint: str) -> dict[str, str]:
     return {"key": key, "label": label, "role": role, "hint": hint}
 
 
+def node(ident: str, kind: str, label: str, note: str, column: int, row: int = 0) -> dict[str, object]:
+    return {"id": ident, "kind": kind, "label": label, "note": note, "column": column, "row": row}
+
+
+# A garage on a teaching street should not open empty. The kit is a first project with every bay
+# already labelled and a workflow that explains the loop, so the first thing a newcomer sees is the
+# shape of the thing they are about to build rather than six blank mounts. Nothing here is source
+# code: it is the map of the build, and swapping any bay for your own is the whole exercise.
+STARTER_KITS: dict[str, dict[str, object]] = {
+    "night-courier": {
+        "project": ("First Run", "A courier that gets parcels across the city before the fuel runs out."),
+        "modules": [
+            ("map", "CityMap", "Python", "Reads the grid: streets, walls, parcels, and how much fuel is left.", "stable", 3),
+            ("dispatch", "Dispatcher", "Python", "Chooses which parcel to chase next. Most of your score lives in this bay.", "active", 6),
+            ("route", "Router", "Python", "Finds a way from here to there. The simplest one that works is a fine start.", "active", 5),
+            ("drive", "Driver", "Python", "Turns a route into one legal move at a time, and spends the fuel.", "stable", 3),
+            ("readout", "Readout", "JavaScript", "Draws the run so you can watch the bot decide and see where it wastes a trip.", "active", 2),
+            ("bench", "Bench", "Python", "Replays the sample city and tells you whether a change actually helped.", "stable", 4),
+        ],
+        "workflow": ("One night run", [
+            node("city", "intake", "City map", "A grid, some walls, parcels waiting, and a fuel tank.", 0),
+            node("pick", "decision", "Pick a parcel", "Nearest? Worth the most? Furthest before the fuel drops? Your call.", 1),
+            node("plan", "process", "Plan a route", "Any path counts. A shorter one leaves fuel for the next parcel.", 2),
+            node("agent", "agent", "Your agent", "Ask it to try a different rule in one bay, then run the bench and compare.", 2, 1),
+            node("step", "process", "Drive one step", "Legal moves only. Every step costs fuel.", 3),
+            node("log", "store", "Run log", "Every move kept, so a bad night can be replayed instead of argued about.", 3, 1),
+            node("fuel", "decision", "Fuel left?", "Still burning: go again. Empty: the night is over.", 4),
+            node("score", "output", "Score", "Parcels delivered against fuel spent. One number, same for everyone.", 5),
+        ], [
+            {"from": "city", "to": "pick"},
+            {"from": "pick", "to": "plan"},
+            {"from": "plan", "to": "step"},
+            {"from": "step", "to": "log"},
+            {"from": "step", "to": "fuel"},
+            {"from": "fuel", "to": "pick", "label": "fuel left"},
+            {"from": "fuel", "to": "score", "label": "tank empty"},
+            {"from": "agent", "to": "pick", "label": "try a rule"},
+        ]),
+    },
+}
+
+
+def seed_starter_kit(connection: sqlite3.Connection, garage_id: int, hood: sqlite3.Row, now: int) -> None:
+    """Fill a brand-new garage with its street's teaching kit, when that street has one."""
+    kit = STARTER_KITS.get(hood["slug"])
+    if not kit:
+        return
+    name, tagline = kit["project"]
+    project_id = connection.execute(
+        """INSERT INTO projects(garage_id,name,tagline,flagship,kind,workspace_id,created_at,updated_at)
+           VALUES(?,?,?,1,'own',NULL,?,?)""",
+        (garage_id, name, tagline, now, now)).lastrowid
+    connection.executemany(
+        """INSERT INTO garage_modules(garage_id,project_id,slot,name,lang,note,source,ref,status,weight)
+           VALUES(?,?,?,?,?,?,'','',?,?)""",
+        [(garage_id, project_id, slot_key, mod_name, lang, note, status, weight)
+         for slot_key, mod_name, lang, note, status, weight in kit["modules"]])
+    flow_name, nodes, edges = kit["workflow"]
+    connection.execute(
+        "INSERT INTO workflows(project_id,name,notes,nodes,edges,updated_at) VALUES(?,?,'',?,?,?)",
+        (project_id, flow_name, json.dumps(nodes), json.dumps(edges), now))
+
+
+
+
+
 STARTER_NEIGHBORHOODS = [
+    # The way in. Everything else on VybPort assumes you already know what you are building; this
+    # street hands you a problem small enough to finish in an evening and open enough to keep
+    # picking at. The rules are tiny, the score is a number, and every garage on it is wired the
+    # same way, so a newcomer can open somebody else's door and recognise every bay inside.
+    ("night-courier", "Night courier bots", "Get the parcels across the city before the fuel runs out. The friendliest way in.", 42, "rack", [
+        slot("map", "Map", "logic", "How the city is read"),
+        slot("dispatch", "Dispatch", "logic", "Which parcel to chase next"),
+        slot("route", "Route", "logic", "How a path is found"),
+        slot("drive", "Drive", "effects", "How one move is actually made"),
+        slot("readout", "Readout", "interface", "How you watch a run"),
+        slot("bench", "Bench", "tests", "How you prove a change helped"),
+    ], ["pathfinding", "routing", "heuristics", "simulation", "grid", "beginner", "visual"]),
     ("memory-systems", "AI memory systems", "Recall, evidence, and what a system can prove it remembers.", 172, "brain", [
         slot("ingest", "Ingest", "logic", "How material enters the system"),
         slot("index", "Index", "memory", "How it is organised for lookup"),
@@ -133,7 +213,8 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY, handle TEXT UNIQUE NOT NULL,
                 display_name TEXT NOT NULL, password_hash TEXT NOT NULL,
-                bio TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL
+                bio TEXT NOT NULL DEFAULT '', profile_html TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL
             );
             CREATE TABLE IF NOT EXISTS sessions (
                 token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL,
@@ -235,7 +316,8 @@ def init_db() -> None:
                 origin_project INTEGER, origin_repo TEXT NOT NULL DEFAULT '',
                 test_command TEXT NOT NULL DEFAULT '', test_result TEXT NOT NULL DEFAULT '', tested_at INTEGER,
                 checkout_path TEXT NOT NULL DEFAULT '',
-                workspace_id INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+                workspace_id INTEGER, sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
                 FOREIGN KEY(garage_id) REFERENCES garages(id)
             );
             CREATE TABLE IF NOT EXISTS module_variants (
@@ -330,6 +412,24 @@ def init_db() -> None:
              json.dumps({"fixture": "fp-amb-held-out", "cases": [{"id": "h1", "trace": ["LOOK", "DO", "SPEAK"]}, {"id": "h2", "trace": ["DO", "SPEAK"]}]}),
              int(time.time())),
         )
+        connection.execute(
+            """INSERT OR IGNORE INTO benchmarks(slug,title,neighborhood_id,summary,metric,adaptor,score_max,cadence,capabilities,sample_fixture,scored_fixture,opened_at,closed_at,created_by)
+               VALUES(?,?,(SELECT id FROM neighborhoods WHERE slug='night-courier'),?,?,?,?,?,?,?,?,?,NULL,0)""",
+            ("courier-night-1", "Night run · parcels on a fuel budget",
+             "Same city, same parcels, same tank for everyone. Deliver what you can before the fuel runs out; "
+             "the score is parcels delivered against fuel spent, so a clumsy route costs you the next parcel.",
+             "parcels per 100 fuel", ARENA_ADAPTOR, 100.0, "weekly",
+             json.dumps(["grid-map", "move-log"]),
+             json.dumps({"fixture": "courier-sample", "cases": [
+                 {"id": "s1", "grid": ["....", ".##.", "....", "P..D"], "fuel": 40},
+             ]}),
+             json.dumps({"fixture": "courier-held-out", "cases": [
+                 {"id": "h1", "grid": ["P....", ".###.", ".....", ".###.", "....D"], "fuel": 60},
+                 {"id": "h2", "grid": ["P..#..D", ".#.#.#.", ".#...#.", "..#.#..", "D..#..P"], "fuel": 120},
+                 {"id": "h3", "grid": ["PP...DD", "..###..", "P..#..D", "..###..", "PP...DD"], "fuel": 220},
+             ]}),
+             int(time.time())),
+        )
         today = time.strftime("%Y-%m-%d", time.gmtime())
         connection.executemany(
             "INSERT OR IGNORE INTO daily_badges(day,target,leaderboard,placement) VALUES(?,?,?,?)",
@@ -355,6 +455,7 @@ def init_db() -> None:
             ("agent_tokens", "ssh_public_key", "TEXT NOT NULL DEFAULT ''"), ("agent_tokens", "ssh_key_type", "TEXT NOT NULL DEFAULT ''"),
             ("agent_tokens", "ssh_fingerprint", "TEXT NOT NULL DEFAULT ''"), ("agent_tokens", "token_hint", "TEXT NOT NULL DEFAULT ''"),
             ("agent_tokens", "expires_at", "INTEGER"), ("agent_tokens", "rotated_at", "INTEGER"),
+            ("users", "profile_html", "TEXT NOT NULL DEFAULT ''"),
             ("neighborhoods", "layout", "TEXT NOT NULL DEFAULT 'rack'"), ("garages", "workspace_id", "INTEGER"),
             ("comments", "via", "TEXT NOT NULL DEFAULT ''"),
             ("garage_modules", "source", "TEXT NOT NULL DEFAULT ''"), ("garage_modules", "ref", "TEXT NOT NULL DEFAULT ''"),
@@ -364,6 +465,7 @@ def init_db() -> None:
             ("projects", "origin_project", "INTEGER"), ("projects", "origin_repo", "TEXT NOT NULL DEFAULT ''"),
             ("projects", "test_command", "TEXT NOT NULL DEFAULT ''"), ("projects", "test_result", "TEXT NOT NULL DEFAULT ''"),
             ("projects", "tested_at", "INTEGER"), ("projects", "checkout_path", "TEXT NOT NULL DEFAULT ''"),
+            ("projects", "sort_order", "INTEGER NOT NULL DEFAULT 0"),
         ):
             if column not in {row["name"] for row in connection.execute(f"PRAGMA table_info({table})")}:
                 connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
@@ -422,6 +524,16 @@ def init_db() -> None:
             for table in ("garage_modules", "module_variants"):
                 connection.execute(f"UPDATE {table} SET project_id=? WHERE garage_id=? AND project_id IS NULL",
                                    (cursor.lastrowid, garage["id"]))
+        # Old rows all start at zero. Give each garage a deterministic rail order once; subsequent
+        # drag-and-drop changes are explicit and survive updated_at churn.
+        for garage in connection.execute("SELECT id FROM garages").fetchall():
+            rows = connection.execute(
+                "SELECT id,sort_order FROM projects WHERE garage_id=? AND kind='own' "
+                "ORDER BY flagship DESC,updated_at DESC,id", (garage["id"],)
+            ).fetchall()
+            if len(rows) > 1 and len({row["sort_order"] for row in rows}) == 1:
+                for position, row in enumerate(rows):
+                    connection.execute("UPDATE projects SET sort_order=? WHERE id=?", (position, row["id"]))
         # Benchmarks and tickets predating neighbourhoods all belong to the first street.
         if "neighborhood_id" not in {row["name"] for row in connection.execute("PRAGMA table_info(benchmarks)")}:
             connection.execute("ALTER TABLE benchmarks ADD COLUMN neighborhood_id INTEGER NOT NULL DEFAULT 1")
@@ -458,6 +570,45 @@ def user_payload(row: sqlite3.Row) -> dict[str, object]:
     return {
         "id": row["id"], "handle": row["handle"], "display_name": row["display_name"], "bio": row["bio"],
         "owner": is_owner(row), "local_agent_bridge": local_agent_bridge_allowed(row),
+    }
+
+
+def clean_profile_html(value: object) -> str:
+    """Keep the public page intentionally flexible; isolation happens at the document boundary."""
+    if not isinstance(value, str):
+        raise ValueError("Profile page HTML must be text.")
+    if "\x00" in value:
+        raise ValueError("Profile page HTML cannot contain null bytes.")
+    if len(value.encode("utf-8")) > MAX_PROFILE_HTML_BYTES:
+        raise ValueError(f"Profile pages may be at most {MAX_PROFILE_HTML_BYTES // 1024} KiB.")
+    return value
+
+
+def default_profile_html(row: sqlite3.Row) -> str:
+    """A deliberately quiet first page. The human or their appearance-scoped agent can replace it."""
+    legacy = ROOT / "skins" / "nemo.html"
+    if row["handle"] == "nemo" and legacy.is_file():
+        return legacy.read_text(encoding="utf-8")
+    name, handle = escape(str(row["display_name"])), escape(str(row["handle"]))
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>@{handle}</title><style>
+html,body{{min-height:100%;margin:0;background:#080b0e;color:#d9e3e8;font-family:ui-monospace,monospace}}
+main{{min-height:100vh;display:grid;place-content:center;text-align:center}}small{{color:#637580;letter-spacing:.12em}}
+</style></head><body><main><div><small>@{handle}</small><h1>{name}</h1></div></main></body></html>"""
+
+
+def profile_canvas_html(row: sqlite3.Row) -> str:
+    return row["profile_html"] or default_profile_html(row)
+
+
+def profile_page_payload(row: sqlite3.Row) -> dict[str, object]:
+    html = profile_canvas_html(row)
+    return {
+        "handle": row["handle"], "display_name": row["display_name"], "bio": row["bio"],
+        "html": html, "custom": bool(row["profile_html"]),
+        "bytes": len(html.encode("utf-8")), "limit": MAX_PROFILE_HTML_BYTES,
+        "sandbox": "Scripts may run inside an opaque sandbox, with no account, cookie, workspace, parent-page, form, or network API access.",
     }
 
 
@@ -3893,6 +4044,8 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                              json.dumps(tags), str(payload.get("display", "")).strip()[:200], now, now))
                     except sqlite3.IntegrityError:
                         raise ValueError(f"You already have a garage on {hood['name']}. Open its door instead.") from None
+                    if payload.get("starter", True):
+                        seed_starter_kit(connection, cursor.lastrowid, hood, now)
                     garages = load_garages(connection, "garages.id=?", (cursor.lastrowid,))
                 self.json_response(HTTPStatus.CREATED, {"garage": garages[0]})
                 return

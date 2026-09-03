@@ -76,6 +76,24 @@ Think GitHub crossed with Instagram: the point is what you put out, not how you 
 
 A garage stages as many **projects** as you like; one is the **flagship**, the one a visitor meets first. Inside a project, each of the street's bays holds one **module** — and a bay can have several candidates linked to it: another subfolder, another file, another commit. Swapping which one is mounted is a presentation decision, not a build one. If the paired workspace is a git repo, VybPort lists the commits that touched a module's path so a bay can be pinned to an earlier one.
 
+## Start on Night courier
+
+Every other street on VybPort assumes you already know what you are building. **Night courier bots**
+does not. The brief is small enough to finish in an evening: a bot drives a grid city, picks up
+parcels and delivers them before the fuel runs out. Score is parcels delivered against fuel spent —
+one number, the same city for everyone, so the arena can rank a first attempt against a tenth.
+
+Opening a garage there does not give you an empty rack. It gives you a **First Run** project with all
+six bays already labelled and a workflow that draws the loop: read the city, pick a parcel, plan a
+route, drive a step, check the fuel, score. None of that is source code — it is the map of the build.
+Filling a bay with your own work, and swapping one rule for another, is the exercise. Pass
+`starter: false` when opening the garage if you would rather begin from nothing.
+
+The bays are the same in every garage on the street, which is the point: `map`, `dispatch`, `route`,
+`drive`, `readout`, `bench`. You can open a neighbour's door, find their Dispatcher in the same place
+as yours, and read the one rule that beat you. Most of the score lives in that bay, and it is three
+lines of logic — a good first thing to argue with an agent about.
+
 ## The saved locker
 
 A garage is a workshop, not only a display case. In Wander, open a live garage's module picker and save only the modules you want. They land in a persistent locker grouped by their source project and ranked by overlap with the project currently on your lift. Repeat saves merge into the same locker project instead of producing duplicates.
