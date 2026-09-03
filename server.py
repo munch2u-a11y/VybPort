@@ -788,6 +788,157 @@ def project_owned_by(connection: sqlite3.Connection, user_id: int, project_id: o
     return project, garage
 
 
+def own_project_layout(connection: sqlite3.Connection, user_id: int,
+                       project_id: object) -> tuple[sqlite3.Row, sqlite3.Row, sqlite3.Row, set[str]]:
+    project, garage = project_owned_by(connection, user_id, project_id)
+    if project["kind"] != "own":
+        raise ValueError("Saved neighbor modules stay in the locker; only your own project goes on the lift.")
+    hood = connection.execute("SELECT * FROM neighborhoods WHERE id=?", (garage["neighborhood_id"],)).fetchone()
+    allowed = {item["key"] for item in json.loads(hood["slots"])}
+    return project, garage, hood, allowed
+
+
+def clean_module_source(connection: sqlite3.Connection, garage: sqlite3.Row,
+                        project: sqlite3.Row, value: object) -> str:
+    source = str(value or "").strip().replace("\\", "/")
+    if not source or source == ".":
+        return ""
+    if len(source) > 400 or source.startswith(("/", "-")):
+        raise ValueError("Module sources must be relative paths inside the paired workspace.")
+    relative = Path(source)
+    if relative.is_absolute() or any(part in {"", ".", ".."} or part.startswith(".") or part in SKIP_DIRS
+                                     for part in relative.parts):
+        raise ValueError("Module sources must stay inside the visible part of the paired workspace.")
+    if not (project["workspace_id"] or garage["workspace_id"]):
+        raise ValueError("Pair this project with a workspace before mounting a source path.")
+    base, _ = garage_workspace(connection, garage, None, project)
+    cursor = base
+    for part in relative.parts:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            raise ValueError("Module sources cannot pass through symbolic links.")
+    target = cursor.resolve()
+    if target != base and base not in target.parents:
+        raise ValueError("That module source is outside the paired workspace.")
+    if not target.exists() or not (target.is_file() or target.is_dir()):
+        raise ValueError("That module source does not exist in the paired workspace.")
+    return str(relative)
+
+
+def project_module_candidates(connection: sqlite3.Connection, user_id: int,
+                              project_id: object) -> dict[str, object]:
+    project, garage, _, _ = own_project_layout(connection, user_id, project_id)
+    workspace_id = project["workspace_id"] or garage["workspace_id"]
+    if not workspace_id:
+        return {"paired": False, "root": "", "modules": [],
+                "note": "Pair a workspace to detect modules, or describe this bay manually."}
+    base, _ = garage_workspace(connection, garage, workspace_id, project)
+    scan = scan_rack(base)
+    mounted = connection.execute(
+        "SELECT slot,name,source FROM garage_modules WHERE project_id=?", (project["id"],)
+    ).fetchall()
+    modules = []
+    for candidate in scan["modules"]:
+        match = next((row for row in mounted if (
+            bool(candidate.get("source")) and row["source"] == candidate["source"]
+        ) or (not candidate.get("source") and row["name"].lower() == str(candidate["name"]).lower())), None)
+        modules.append(candidate | {"mounted_slot": match["slot"] if match else ""})
+    return {"paired": True, "root": base.name, "modules": modules, "links": scan["links"]}
+
+
+def mount_project_module(connection: sqlite3.Connection, user_id: int, project_id: object,
+                         slot: object, module: object) -> sqlite3.Row | None:
+    project, garage, hood, allowed = own_project_layout(connection, user_id, project_id)
+    slot_name = str(slot or "")
+    if slot_name not in allowed:
+        raise ValueError(f"'{slot_name}' is not a bay on {hood['name']}.")
+    if not isinstance(module, dict):
+        raise ValueError("Describe the module to mount in this bay.")
+    previous = connection.execute(
+        "SELECT * FROM garage_modules WHERE project_id=? AND slot=?", (project["id"], slot_name)
+    ).fetchone()
+    if module.get("remove") is True:
+        connection.execute("DELETE FROM garage_modules WHERE project_id=? AND slot=?", (project["id"], slot_name))
+        connection.execute("DELETE FROM module_file_snapshots WHERE project_id=? AND slot=?", (project["id"], slot_name))
+        connection.execute("DELETE FROM review_notes WHERE project_id=? AND slot=?", (project["id"], slot_name))
+        connection.execute("UPDATE module_variants SET active=0 WHERE project_id=? AND slot=?", (project["id"], slot_name))
+        now = int(time.time())
+        connection.execute("UPDATE projects SET updated_at=? WHERE id=?", (now, project["id"]))
+        connection.execute("UPDATE garages SET updated_at=? WHERE id=?", (now, garage["id"]))
+        return None
+    name = str(module.get("name", "")).strip()[:60]
+    if not name:
+        raise ValueError("Name the module you are mounting.")
+    source = clean_module_source(connection, garage, project, module.get("source"))
+    ref = str(module.get("ref", "")).strip()[:80]
+    changed_source = bool(previous and (previous["source"] != source or previous["ref"] != ref))
+    if changed_source:
+        # A frozen public snapshot and its line notes describe exact code. They cannot silently
+        # follow a bay when the human points that bay at different code.
+        connection.execute("DELETE FROM module_file_snapshots WHERE project_id=? AND slot=?", (project["id"], slot_name))
+        connection.execute("DELETE FROM review_notes WHERE project_id=? AND slot=?", (project["id"], slot_name))
+    status = module.get("status") if module.get("status") in {"hot", "active", "stable"} else "active"
+    raw_weight = module.get("weight", 1)
+    weight = max(1, min(9, int(raw_weight) if isinstance(raw_weight, (int, float)) and not isinstance(raw_weight, bool) else 1))
+    connection.execute(
+        """INSERT INTO garage_modules(garage_id,project_id,slot,name,lang,note,source,ref,status,weight)
+           VALUES(?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(project_id,slot) DO UPDATE SET name=excluded.name,lang=excluded.lang,
+             note=excluded.note,source=excluded.source,ref=excluded.ref,status=excluded.status,weight=excluded.weight""",
+        (garage["id"], project["id"], slot_name, name, str(module.get("lang", "")).strip()[:24],
+         str(module.get("note", "")).strip()[:160], source, ref, status, weight),
+    )
+    now = int(time.time())
+    connection.execute("UPDATE projects SET updated_at=? WHERE id=?", (now, project["id"]))
+    connection.execute("UPDATE garages SET updated_at=? WHERE id=?", (now, garage["id"]))
+    return connection.execute(
+        "SELECT * FROM garage_modules WHERE project_id=? AND slot=?", (project["id"], slot_name)
+    ).fetchone()
+
+
+def move_project_module(connection: sqlite3.Connection, user_id: int, project_id: object,
+                        from_slot: object, to_slot: object) -> None:
+    project, garage, hood, allowed = own_project_layout(connection, user_id, project_id)
+    source, target = str(from_slot or ""), str(to_slot or "")
+    if source not in allowed or target not in allowed:
+        raise ValueError(f"Both module positions must be bays on {hood['name']}.")
+    if source == target:
+        return
+    if not connection.execute(
+        "SELECT 1 FROM garage_modules WHERE project_id=? AND slot=?", (project["id"], source)
+    ).fetchone():
+        raise ValueError("The module you tried to move is no longer mounted.")
+    temporary = "__moving_" + secrets.token_hex(8)
+    # Module metadata, published files, line notes, and saved variants travel as one unit. A target
+    # module is swapped back into the source bay rather than overwritten.
+    for table in ("garage_modules", "module_file_snapshots", "review_notes", "module_variants"):
+        connection.execute(f"UPDATE {table} SET slot=? WHERE project_id=? AND slot=?", (temporary, project["id"], target))
+        connection.execute(f"UPDATE {table} SET slot=? WHERE project_id=? AND slot=?", (target, project["id"], source))
+        connection.execute(f"UPDATE {table} SET slot=? WHERE project_id=? AND slot=?", (source, project["id"], temporary))
+    now = int(time.time())
+    connection.execute("UPDATE projects SET updated_at=? WHERE id=?", (now, project["id"]))
+    connection.execute("UPDATE garages SET updated_at=? WHERE id=?", (now, garage["id"]))
+
+
+def reorder_garage_projects(connection: sqlite3.Connection, user_id: int,
+                            garage_id: object, order: object) -> None:
+    if not isinstance(garage_id, int) or not isinstance(order, list) or any(
+        not isinstance(item, int) or isinstance(item, bool) for item in order
+    ):
+        raise ValueError("Project order must be a list of project ids from this garage.")
+    garage = connection.execute("SELECT * FROM garages WHERE id=? AND user_id=?", (garage_id, user_id)).fetchone()
+    if not garage:
+        raise PermissionError("That garage is not yours.")
+    expected = [row["id"] for row in connection.execute(
+        "SELECT id FROM projects WHERE garage_id=? AND kind='own' ORDER BY sort_order,id", (garage_id,)
+    ).fetchall()]
+    if len(order) != len(set(order)) or set(order) != set(expected):
+        raise ValueError("Project order must include each of your lift projects exactly once.")
+    for position, project_id in enumerate(order):
+        connection.execute("UPDATE projects SET sort_order=? WHERE id=?", (position, project_id))
+    connection.execute("UPDATE garages SET updated_at=? WHERE id=?", (int(time.time()), garage_id))
+
+
 def project_review_file(connection: sqlite3.Connection, user_id: int, project_id: object,
                         slot: object, source: object) -> dict[str, object]:
     """The exact document shown in the review window: live local code or a saved public snapshot."""
@@ -1431,6 +1582,12 @@ TOOL_SETS: dict[str, dict[str, object]] = {
     "profile": {"summary": "Who the token belongs to and where they build.", "tools": {
         "whoami": {"description": "The profile this token acts for, and the neighborhoods they keep a garage on.", "schema": {}},
         "list_my_garages": {"description": "Every garage this profile keeps, one per neighborhood, with its mounted bays.", "schema": {}},
+    }},
+    "appearance": {"summary": "Read or replace this profile's public sandboxed HTML page.", "tools": {
+        "read_page": {"description": "Read the exact HTML currently shown inside this profile's isolated public canvas.",
+                      "schema": {}},
+        "update_page": {"description": "Replace this profile's public HTML canvas. This cannot alter site navigation, account settings, garages, or credentials.",
+                        "schema": {"html": {"type": "string"}}, "required": ["html"]},
     }},
     "street": {"summary": "Read any neighborhood and the garages on it.", "tools": {
         "list_neighborhoods": {"description": "Every street, its shared bay layout, and how many garages sit on it.", "schema": {}},
@@ -2137,7 +2294,10 @@ def current_project(connection: sqlite3.Connection, garage: sqlite3.Row, request
         if not row:
             raise ValueError("That project is not in this garage.")
         return row
-    row = connection.execute("SELECT * FROM projects WHERE garage_id=? AND kind='own' ORDER BY flagship DESC, id LIMIT 1", (garage["id"],)).fetchone()
+    row = connection.execute(
+        "SELECT * FROM projects WHERE garage_id=? AND kind='own' ORDER BY flagship DESC,sort_order,id LIMIT 1",
+        (garage["id"],),
+    ).fetchone()
     if row:
         return row
     now = int(time.time())
@@ -2185,7 +2345,8 @@ def load_projects(connection: sqlite3.Connection, garage_ids: list[int]) -> dict
         return {}
     marks = ",".join("?" * len(garage_ids))
     rows = connection.execute(
-        f"SELECT * FROM projects WHERE garage_id IN ({marks}) ORDER BY kind, flagship DESC, updated_at DESC", tuple(garage_ids)).fetchall()
+        f"SELECT * FROM projects WHERE garage_id IN ({marks}) "
+        "ORDER BY kind, sort_order, flagship DESC, updated_at DESC", tuple(garage_ids)).fetchall()
     if not rows:
         return {}
     ids = tuple(row["id"] for row in rows)
@@ -2213,7 +2374,7 @@ def load_projects(connection: sqlite3.Connection, garage_ids: list[int]) -> dict
             "kind": row["kind"], "origin_handle": row["origin_handle"], "origin_project": row["origin_project"],
             "origin_repo": row["origin_repo"], "test_command": row["test_command"], "test_result": row["test_result"],
             "tested_at": row["tested_at"], "checkout_path": row["checkout_path"],
-            "workspace_id": row["workspace_id"], "updated_at": row["updated_at"],
+            "workspace_id": row["workspace_id"], "sort_order": row["sort_order"], "updated_at": row["updated_at"],
             "modules": [dict(module) for module in modules.get(row["id"], [])],
             "variants": variants.get(row["id"], []), "workflow": workflow_payload(flows.get(row["id"])),
             "published_files": public_files.get(row["id"], {}),
@@ -2270,6 +2431,25 @@ class VybPortHandler(SimpleHTTPRequestHandler):
             self.send_header("Set-Cookie", cookie)
         for name, value in (headers or {}).items():
             self.send_header(name, value)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def profile_html_response(self, html: str) -> None:
+        body = html.encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'none'; "
+            "frame-ancestors 'self'; connect-src 'none'; script-src 'unsafe-inline'; "
+            "style-src 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src https://fonts.gstatic.com data:; img-src https: data:; media-src https: data:; "
+            "frame-src https:; sandbox allow-scripts",
+        )
         self.end_headers()
         self.wfile.write(body)
 
@@ -2496,6 +2676,16 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                         "neighborhoods": [garage["neighborhood"] for garage in garages]}
             if name == "profile.list_my_garages":
                 return {"garages": load_garages(connection, "garages.user_id=?", (user["id"],))}
+            if name == "appearance.read_page":
+                row = connection.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
+                return profile_page_payload(row) | {"canvas_url": f"/profiles/{row['handle']}/canvas"}
+            if name == "appearance.update_page":
+                html = clean_profile_html(arguments.get("html"))
+                connection.execute("UPDATE users SET profile_html=? WHERE id=?", (html, user["id"]))
+                row = connection.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
+                return {"updated": True, "handle": row["handle"], "bytes": len(html.encode("utf-8")),
+                        "limit": MAX_PROFILE_HTML_BYTES, "canvas_url": f"/profiles/{row['handle']}/canvas",
+                        "sandbox": profile_page_payload(row)["sandbox"]}
             if name == "street.list_neighborhoods":
                 counts = dict(connection.execute("SELECT neighborhood_id, COUNT(*) FROM garages GROUP BY neighborhood_id").fetchall())
                 rows = connection.execute("SELECT * FROM neighborhoods ORDER BY name").fetchall()
@@ -2600,9 +2790,14 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                 if name == "garage.new_project":
                     now = int(time.time())
                     first = not connection.execute("SELECT 1 FROM projects WHERE garage_id=?", (garage["id"],)).fetchone()
+                    position = connection.execute(
+                        "SELECT COALESCE(MAX(sort_order),-1)+1 FROM projects WHERE garage_id=? AND kind='own'",
+                        (garage["id"],),
+                    ).fetchone()[0]
                     connection.execute(
-                        "INSERT INTO projects(garage_id,name,tagline,flagship,created_at,updated_at) VALUES(?,?,?,?,?,?)",
-                        (garage["id"], str(arguments.get("name", ""))[:60], str(arguments.get("tagline", ""))[:140], 1 if first else 0, now, now))
+                        "INSERT INTO projects(garage_id,name,tagline,flagship,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
+                        (garage["id"], str(arguments.get("name", ""))[:60], str(arguments.get("tagline", ""))[:140],
+                         1 if first else 0, position, now, now))
                 elif name == "garage.set_flagship":
                     project = current_project(connection, garage, arguments.get("project"))
                     connection.execute("UPDATE projects SET flagship=0 WHERE garage_id=?", (garage["id"],))
@@ -2924,6 +3119,23 @@ class VybPortHandler(SimpleHTTPRequestHandler):
             user = self.session_user()
             self.json_response(HTTPStatus.OK, {"user": user_payload(user) if user else None})
             return
+        profile_page = re.fullmatch(r"/api/profiles/([a-z0-9][a-z0-9-]{2,31})/page", parsed.path)
+        profile_canvas = re.fullmatch(r"/profiles/([a-z0-9][a-z0-9-]{2,31})/canvas", parsed.path)
+        if profile_page or profile_canvas:
+            handle = (profile_page or profile_canvas).group(1)
+            with db() as connection:
+                row = connection.execute("SELECT * FROM users WHERE handle=?", (handle,)).fetchone()
+            if not row:
+                if profile_page:
+                    self.json_response(HTTPStatus.NOT_FOUND, {"error": "No such VybPort profile."})
+                else:
+                    self.send_error(HTTPStatus.NOT_FOUND, "No such VybPort profile")
+                return
+            if profile_canvas:
+                self.profile_html_response(profile_canvas_html(row))
+            else:
+                self.json_response(HTTPStatus.OK, {"profile": profile_page_payload(row)})
+            return
         if parsed.path == "/api/git/status":
             try:
                 self.require_user()
@@ -2956,6 +3168,18 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                                     for name, tool in spec["tools"].items()
                                     if mcp_tool_enabled(f"{scope}.{name}")]}
                          for scope, spec in TOOL_SETS.items() if scope in usable_scopes(MCP_SCOPES)]})
+            return
+        module_candidates = re.fullmatch(r"/api/projects/(\d+)/module-candidates", parsed.path)
+        if module_candidates:
+            try:
+                user = self.require_user()
+                with db() as connection:
+                    result = project_module_candidates(connection, user["id"], int(module_candidates.group(1)))
+                self.json_response(HTTPStatus.OK, result)
+            except PermissionError as error:
+                self.json_response(HTTPStatus.UNAUTHORIZED, {"error": str(error)})
+            except (ValueError, OSError) as error:
+                self.json_response(HTTPStatus.BAD_REQUEST, {"error": str(error)})
             return
         if parsed.path.startswith("/api/garages/") and parsed.path.rsplit("/", 1)[-1] in {"tree", "file"}:
             try:
@@ -3438,6 +3662,14 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                 self.json_response(HTTPStatus.OK, {"ok": True},
                                    f"vybport_session=; Path=/; HttpOnly; SameSite=Strict{secure}; Max-Age=0")
                 return
+            if route == "/api/profile/page":
+                user = self.require_user()
+                html = clean_profile_html(payload.get("html"))
+                with db() as connection:
+                    connection.execute("UPDATE users SET profile_html=? WHERE id=?", (html, user["id"]))
+                    row = connection.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
+                self.json_response(HTTPStatus.OK, {"profile": profile_page_payload(row)})
+                return
             if route in {"/api/git/stage", "/api/git/unstage", "/api/git/commit"}:
                 self.require_user()
                 if route == "/api/git/stage":
@@ -3634,6 +3866,30 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                          str(payload.get("note", ""))[:2000], int(time.time())))
                 self.json_response(HTTPStatus.OK, {"focus": {"label": payload.get("label", ""), "context": context}})
                 return
+            module_mount = re.fullmatch(r"/api/projects/(\d+)/modules/([a-z0-9-]+)", route)
+            if module_mount:
+                user = self.require_user()
+                project_id, slot_name = int(module_mount.group(1)), module_mount.group(2)
+                with db() as connection:
+                    _, project_garage = project_owned_by(connection, user["id"], project_id)
+                    mounted = mount_project_module(connection, user["id"], project_id, slot_name, payload)
+                    garages = load_garages(connection, "garages.id=?", (project_garage["id"],))
+                self.json_response(HTTPStatus.OK, {
+                    "garage": garages[0], "project": project_id, "slot": slot_name,
+                    "module": dict(mounted) if mounted else None,
+                })
+                return
+            module_layout = re.fullmatch(r"/api/projects/(\d+)/module-layout", route)
+            if module_layout:
+                user = self.require_user()
+                project_id = int(module_layout.group(1))
+                with db() as connection:
+                    _, project_garage = project_owned_by(connection, user["id"], project_id)
+                    move_project_module(connection, user["id"], project_id,
+                                        payload.get("from"), payload.get("to"))
+                    garages = load_garages(connection, "garages.id=?", (project_garage["id"],))
+                self.json_response(HTTPStatus.OK, {"garage": garages[0], "project": project_id})
+                return
             publish_route = re.fullmatch(r"/api/projects/(\d+)/modules/([a-z0-9-]+)/publish", route)
             if publish_route:
                 user = self.require_user()
@@ -3781,12 +4037,24 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                         raise PermissionError("That garage is not yours.")
                     now = int(time.time())
                     first = not connection.execute("SELECT 1 FROM projects WHERE garage_id=?", (garage_id,)).fetchone()
+                    position = connection.execute(
+                        "SELECT COALESCE(MAX(sort_order),-1)+1 FROM projects WHERE garage_id=? AND kind='own'",
+                        (garage_id,),
+                    ).fetchone()[0]
                     cursor = connection.execute(
-                        "INSERT INTO projects(garage_id,name,tagline,flagship,workspace_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
+                        "INSERT INTO projects(garage_id,name,tagline,flagship,workspace_id,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)",
                         (garage_id, name, str(payload.get("tagline", "")).strip()[:140], 1 if first else 0,
-                         payload.get("workspace") if isinstance(payload.get("workspace"), int) else None, now, now))
+                         payload.get("workspace") if isinstance(payload.get("workspace"), int) else None, position, now, now))
                     garages = load_garages(connection, "garages.id=?", (garage_id,))
                 self.json_response(HTTPStatus.CREATED, {"garage": garages[0], "project": cursor.lastrowid})
+                return
+            if re.fullmatch(r"/api/garages/\d+/projects/reorder", route):
+                user = self.require_user()
+                garage_id = int(route.split("/")[3])
+                with db() as connection:
+                    reorder_garage_projects(connection, user["id"], garage_id, payload.get("order"))
+                    garages = load_garages(connection, "garages.id=?", (garage_id,))
+                self.json_response(HTTPStatus.OK, {"garage": garages[0]})
                 return
             if re.fullmatch(r"/api/projects/\d+/flagship", route):
                 user = self.require_user()

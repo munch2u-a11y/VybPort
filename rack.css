@@ -48,6 +48,14 @@
 .pod.empty .pod-glyph{opacity:.22}
 .pod.empty .pod-port,.pod.empty .pod-gauge i{opacity:.25}
 .pod.empty:hover{transform:none;box-shadow:none;border-color:rgba(130,162,184,.4)}
+.rack.interactive .pod.empty.actionable{cursor:pointer}
+.rack.interactive .pod.empty.actionable:hover,.rack.interactive .pod.empty.actionable:focus-visible{transform:translateY(-3px);border-color:var(--tone);box-shadow:0 16px 30px -20px #000,0 0 26px -15px var(--tone)}
+.rack.interactive .pod.empty.actionable .pod-glyph::after{position:absolute;color:var(--tone);content:"+";font:500 28px/1 Outfit,sans-serif;opacity:.8}
+.rack.interactive .pod-glyph{position:relative}
+.rack.interactive .pod.selected{border-color:var(--tone);box-shadow:0 0 0 2px color-mix(in srgb,var(--tone) 34%,transparent),0 22px 38px -20px #000,0 0 34px -14px var(--tone)}
+.rack.interactive .pod.selected::before{position:absolute;z-index:2;top:7px;right:8px;width:7px;height:7px;border:2px solid #091014;border-radius:50%;background:var(--tone);box-shadow:0 0 9px var(--tone);content:""}
+.rack.interactive .pod.dragging{opacity:.3;transform:scale(.97)}
+.rack.interactive .pod.drop-target{border-color:#fff;box-shadow:0 0 0 2px var(--tone),0 0 42px -8px var(--tone);transform:translateY(-5px)}
 .pod header{display:flex;justify-content:space-between;align-items:center;gap:6px}
 .pod-role{color:var(--tone);font:10px "DM Mono";text-transform:uppercase;letter-spacing:1.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pod-led{width:6px;height:6px;flex:0 0 auto;border-radius:50%;background:#3b4750;display:block}

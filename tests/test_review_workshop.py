@@ -200,6 +200,73 @@ class ReviewWorkshopTests(unittest.TestCase):
             notes = server.review_notes(connection, self.alice_id, self.alice_project, "retrieval", "src/core.py", current["sha256"])
         self.assertTrue(all(note["stale"] for note in notes))
 
+    def test_direct_mount_rejects_cross_workspace_paths_and_is_owner_scoped(self) -> None:
+        with server.db() as connection:
+            mounted = server.mount_project_module(connection, self.alice_id, self.alice_project, "ingest", {
+                "name": "Source intake", "source": "src", "lang": "Python", "note": "workspace module",
+                "status": "active", "weight": 3,
+            })
+            self.assertEqual((mounted["slot"], mounted["source"]), ("ingest", "src"))
+            with self.assertRaisesRegex(ValueError, "inside the visible part"):
+                server.mount_project_module(connection, self.alice_id, self.alice_project, "index", {
+                    "name": "Escape", "source": "../bob-work",
+                })
+            with self.assertRaises(PermissionError):
+                server.mount_project_module(connection, self.bob_id, self.alice_project, "index", {
+                    "name": "Not Bob's module", "source": "",
+                })
+            candidates = server.project_module_candidates(connection, self.alice_id, self.alice_project)
+        self.assertTrue(candidates["paired"])
+        self.assertTrue(any(item["source"] == "src" and item["mounted_slot"] in {"ingest", "retrieval"}
+                            for item in candidates["modules"]))
+
+    def test_drag_move_and_swap_keep_snapshots_notes_and_variants_with_the_module(self) -> None:
+        self.publish_core()
+        with server.db() as connection:
+            alice = connection.execute("SELECT * FROM users WHERE id=?", (self.alice_id,)).fetchone()
+            server.add_review_note(
+                connection, alice, self.alice_project, "retrieval", "src/core.py", 1, 1, "Travels with retriever.",
+            )
+            connection.execute(
+                """INSERT INTO module_variants(garage_id,project_id,slot,label,source,created_at)
+                   VALUES(?,?,?,?,?,?)""",
+                (self.alice_garage, self.alice_project, "retrieval", "alternate retriever", "src", int(time.time())),
+            )
+            server.move_project_module(connection, self.alice_id, self.alice_project, "retrieval", "index")
+            server.move_project_module(connection, self.alice_id, self.alice_project, "index", "evaluation")
+            modules = {row["slot"]: row["name"] for row in connection.execute(
+                "SELECT slot,name FROM garage_modules WHERE project_id=?", (self.alice_project,)
+            )}
+            snapshot_slot = connection.execute(
+                "SELECT slot FROM module_file_snapshots WHERE project_id=? AND path='src/core.py'", (self.alice_project,)
+            ).fetchone()[0]
+            note_slot = connection.execute(
+                "SELECT slot FROM review_notes WHERE project_id=? AND body='Travels with retriever.'", (self.alice_project,)
+            ).fetchone()[0]
+            variant_slot = connection.execute(
+                "SELECT slot FROM module_variants WHERE project_id=? AND label='alternate retriever'", (self.alice_project,)
+            ).fetchone()[0]
+        self.assertEqual(modules, {"index": "Evaluator", "evaluation": "Retriever"})
+        self.assertEqual((snapshot_slot, note_slot, variant_slot), ("evaluation", "evaluation", "evaluation"))
+
+    def test_project_drag_order_is_persistent_and_exact(self) -> None:
+        with server.db() as connection:
+            now = int(time.time())
+            second = connection.execute(
+                """INSERT INTO projects(garage_id,name,tagline,flagship,kind,sort_order,workspace_id,created_at,updated_at)
+                   VALUES(?,?,?,0,'own',1,?,?,?)""",
+                (self.alice_garage, "Second build", "another lift", self.alice_workspace, now, now),
+            ).lastrowid
+            server.reorder_garage_projects(
+                connection, self.alice_id, self.alice_garage, [second, self.alice_project]
+            )
+            loaded = server.load_garages(connection, "garages.id=?", (self.alice_garage,))[0]
+            with self.assertRaisesRegex(ValueError, "exactly once"):
+                server.reorder_garage_projects(connection, self.alice_id, self.alice_garage, [second, second])
+            with self.assertRaises(PermissionError):
+                server.reorder_garage_projects(connection, self.bob_id, self.alice_garage, [second, self.alice_project])
+        self.assertEqual([item["id"] for item in loaded["projects"]], [second, self.alice_project])
+
 
 if __name__ == "__main__":
     unittest.main()

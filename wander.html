@@ -76,7 +76,10 @@
       <p class="street-position" id="streetPosition" role="status" aria-live="polite">You are walking a street sorted by what you build.</p>
 
       <div class="street-layout">
-        <section id="streetFeed" class="street-feed"></section>
+        <button class="street-step street-step-prev" id="streetPrev" type="button" aria-label="Walk to the previous garage" aria-controls="streetFeed">‹</button>
+        <section id="streetFeed" class="street-feed" tabindex="0" aria-label="Garage street. Drag, roll the mouse wheel, or use the arrow controls to walk."></section>
+        <button class="street-step street-step-next" id="streetNext" type="button" aria-label="Walk to the next garage" aria-controls="streetFeed">›</button>
+        <span class="street-motion-hint" aria-hidden="true">grab + drag · roll wheel · use arrows</span>
       </div>
     </main>
 

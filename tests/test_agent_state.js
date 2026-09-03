@@ -50,7 +50,25 @@ for (const script of ["app.js", "wander.js", "project.js"]) {
 }
 const garageHtml = fs.readFileSync(path.join(__dirname, "..", "garage.html"), "utf8");
 const garageSource = fs.readFileSync(path.join(__dirname, "..", "garage.js"), "utf8");
+const rackSource = fs.readFileSync(path.join(__dirname, "..", "rack.js"), "utf8");
 assert.ok(garageHtml.includes('id="garageCliBridge"'), "the owner CLI control belongs inside the Garage lift");
 assert.ok(garageSource.includes("currentAgentContext()") && garageSource.includes("/api/agents/start"), "Garage CLI launches must carry lift context");
+assert.ok(garageHtml.includes('id="moduleLoaderDialog"') && garageHtml.includes('id="baySelection"'), "empty and selected bays need direct project-level controls");
+assert.ok(rackSource.includes("addEventListener('dblclick'") && rackSource.includes("application/x-vyb-module"), "rack modules must open on double click and move by drag/drop");
+assert.ok(garageSource.includes("/module-candidates") && garageSource.includes("/module-layout"), "Garage must load empty bays and persist module moves");
+assert.ok(garageSource.includes("application/x-vyb-locker-module"), "locker modules must drag into adjacent comparison");
+
+const profileHtml = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const profileSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+assert.ok(profileHtml.includes('id="profileCanvas"') && profileHtml.includes('sandbox="allow-scripts"'), "the public profile must be an isolated user-authored canvas");
+assert.ok(profileHtml.includes('id="profileSettingsDialog"') && !profileHtml.includes('id="garageGrid"'), "project organization belongs in Garage, outside the public profile");
+assert.ok(profileSource.includes("/api/profile/page") && profileSource.includes("'appearance'"), "owners and appearance-scoped agents must be able to update the public page");
+
+const wanderHtml = fs.readFileSync(path.join(__dirname, "..", "wander.html"), "utf8");
+const wanderSource = fs.readFileSync(path.join(__dirname, "..", "wander.js"), "utf8");
+assert.ok(wanderHtml.includes('id="streetPrev"') && wanderHtml.includes('id="streetNext"'), "Wander must expose visible street controls");
+assert.ok(wanderSource.includes("addEventListener('wheel'") && wanderSource.includes("addEventListener('pointermove'"), "Wander must support wheel and grab-to-drag movement");
+assert.ok(wanderSource.includes("walkStreet(event.key==='ArrowLeft'?-1:1)"), "Wander must support keyboard arrow movement");
+assert.ok(wanderSource.includes("directBuilder") && profileSource.includes("owner?'./garage.html'"), "profile frame garage links must open the owner's lift or locate a visitor's garage");
 
 console.log("agent companion state persists selection and drawer continuity");

@@ -23,10 +23,11 @@ const steps=[
  {label:'across the district',blurb:'different stack, open door'}
 ];
 const TRAY='vybport.street.tray';
-let filter='all',radius='near',query='',badges=new Map(),pinned=null,lowBlock=0,highBlock=1,loading=false,edgeObserver,slotFrame,slotNodes=[],centreNode=null;
+let filter='all',radius='near',query='',badges=new Map(),pinned=null,lowBlock=0,highBlock=1,loading=false,edgeObserver,slotFrame,slotNodes=[],centreNode=null,wheelSettleTimer=0;
 let tab='all',favorites=new Set(),friends=new Set(),asked=new Set(),favoriteGarages=[];
 const $=s=>document.querySelector(s);
 const safe=v=>String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const directBuilder=(new URLSearchParams(location.search).get('builder')||'').trim().replace(/^@/,'').toLowerCase();
 const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),2400)};
 async function api(path,options={}){const response=await fetch(path,{headers:{'Content-Type':'application/json'},...options});const data=await response.json();if(!response.ok)throw new Error(data.error||'VybPort request failed');return data}
 const agentState=window.VybAgentState;
@@ -127,9 +128,19 @@ function updateSlots(){slotFrame=0;const feed=$('#streetFeed');if(!feed||!slotNo
  if(closest!==centreNode){
   centreNode?.classList.remove('is-centre');
   centreNode?.querySelector('.post-activity')?.remove();
-  centreNode=closest;centreNode?.classList.add('is-centre')}}
+  centreNode=closest;centreNode?.classList.add('is-centre')}
+ updateStreetControls()}
 function queueDepths(){if(!slotFrame)slotFrame=requestAnimationFrame(updateSlots)}
 function collectDepthNodes(){slotNodes=[...$('#streetFeed').querySelectorAll('.garage-unit')];centreNode=null;queueDepths()}
+function updateStreetControls(){const index=slotNodes.indexOf(centreNode),empty=index<0;
+ $('#streetPrev').disabled=empty||index===0;$('#streetNext').disabled=empty}
+function centreStreetNode(node,behavior='smooth'){const feed=$('#streetFeed');if(!node||!feed)return;
+ const left=node.offsetLeft+node.offsetWidth/2-feed.clientWidth/2;
+ feed.scrollTo({left:Math.max(0,left),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':behavior})}
+function walkStreet(direction){if(!slotNodes.length)return;updateSlots();let index=slotNodes.indexOf(centreNode);
+ if(direction>0&&index>=slotNodes.length-1){extendDown();index=slotNodes.indexOf(centreNode)}
+ centreStreetNode(slotNodes[index+direction])}
+function settleStreet(){const feed=$('#streetFeed');feed.classList.remove('is-steering');updateSlots();centreStreetNode(centreNode)}
 
 /* The street keeps going: add a block ahead, retire one behind so the walk stays cheap. */
 function observeStreetEdges(){edgeObserver?.disconnect();const sentinel=$('#bottomStreetSentinel');if(!sentinel)return;
@@ -167,7 +178,9 @@ function fromGarage(row){const modules=row.modules||[],flagship=row.flagship||{}
   live:true,projectId:flagship.id,modules,publishedFiles:flagship.published_files||{}}}
 
 async function loadStreet(){
- const active=await VybHood.mountSwitcher($('#hoodSwitcher'),{onChange:slug=>{location.search=`?n=${encodeURIComponent(slug)}`}});
+ let builderHood='';
+ if(directBuilder)try{const all=(await api('/api/garages')).garages||[];builderHood=all.find(item=>item.handle===directBuilder)?.neighborhood||''}catch{}
+ const active=await VybHood.mountSwitcher($('#hoodSwitcher'),{slug:builderHood||undefined,onChange:slug=>{location.search=`?n=${encodeURIComponent(slug)}`}});
  if(!active)return;
  hood=(await api(`/api/neighborhoods/${encodeURIComponent(active.slug)}`)).neighborhood;
  /* Your own tags on this street set the walking distance; the street's own tags stand in if you have no garage here. */
@@ -180,6 +193,7 @@ async function loadStreet(){
  holder.innerHTML=`<button data-filter="all" class="active">All</button>`+
   hood.tags.slice(0,5).map(tag=>`<button data-filter="${safe(tag)}">${safe(tag)}</button>`).join('');
  $('#wanderSearch').placeholder=`Find a garage on ${hood.name}`;
+ if(directBuilder){query=directBuilder;$('#wanderSearch').value=`@${directBuilder}`}
  resetStreet();updateTray()}
 
 /* Things you can carry away: a clone, a note, a bolt, or the whole garage handed to your own agent. */
@@ -312,8 +326,60 @@ $('#wanderAgentForm').onsubmit=async event=>{event.preventDefault();
  finally{agentSending=false}};
 $('#wanderAgentSelect').onchange=async event=>{agentState.select(event.target.value);const selected=selectedWanderAgent();$('#agentState').textContent=selected?`${selected.label} · ${selected.detail}. Its MCP inbox follows you between rooms.`:'Connect an MCP agent from your profile.';await loadWanderAgentHistory({scroll:true})};
 
-$('#streetFeed').addEventListener('scroll',queueDepths,{passive:true});
+const streetFeed=$('#streetFeed');
+streetFeed.addEventListener('scroll',queueDepths,{passive:true});
 addEventListener('resize',queueDepths);
+
+/* A mouse wheel naturally speaks vertically, so turn it into a walk while the pointer is over the
+   street. Nested activity/file lists keep their own vertical wheel. At a hard edge the event falls
+   through to the page, so the street never becomes a scroll trap. */
+streetFeed.addEventListener('wheel',event=>{
+ if(event.ctrlKey||event.metaKey||event.target.closest('.post-activity,.module-picker-list'))return;
+ const raw=Math.abs(event.deltaY)>=Math.abs(event.deltaX)?event.deltaY:event.deltaX;
+ if(!raw)return;
+ if(raw>0&&streetFeed.scrollLeft+streetFeed.clientWidth>=streetFeed.scrollWidth-3)extendDown();
+ const canMove=raw<0?streetFeed.scrollLeft>1:streetFeed.scrollLeft+streetFeed.clientWidth<streetFeed.scrollWidth-1;
+ if(!canMove)return;
+ event.preventDefault();streetFeed.classList.add('is-steering');
+ let distance=raw*(event.deltaMode===1?32:event.deltaMode===2?streetFeed.clientWidth:1);
+ const pitch=slotNodes[0]?.offsetWidth||0;
+ if(event.deltaMode!==0||Math.abs(raw)>=40)distance=Math.sign(distance)*Math.max(Math.abs(distance),pitch*.58);
+ streetFeed.scrollLeft+=distance;clearTimeout(wheelSettleTimer);
+ wheelSettleTimer=setTimeout(settleStreet,150)
+},{passive:false});
+
+/* Grab any non-control part of a garage and pull the street. A real drag suppresses the link click;
+   an ordinary click still walks to or enters the garage exactly as before. */
+const streetDrag={pointerId:null,startX:0,startScroll:0,startNode:null,moved:false,suppressClick:false};
+streetFeed.addEventListener('dragstart',event=>event.preventDefault());
+streetFeed.addEventListener('pointerdown',event=>{
+ if(event.button!==0||event.pointerType==='touch'||event.target.closest('button,input,textarea,select'))return;
+ clearTimeout(wheelSettleTimer);streetFeed.classList.remove('is-steering');updateSlots();
+ streetDrag.pointerId=event.pointerId;streetDrag.startX=event.clientX;streetDrag.startScroll=streetFeed.scrollLeft;streetDrag.startNode=centreNode;streetDrag.moved=false;
+ streetFeed.setPointerCapture?.(event.pointerId)});
+streetFeed.addEventListener('pointermove',event=>{
+ if(event.pointerId!==streetDrag.pointerId)return;const distance=event.clientX-streetDrag.startX;
+ if(!streetDrag.moved&&Math.abs(distance)<6)return;
+ if(!streetDrag.moved){streetDrag.moved=true;streetFeed.classList.add('is-steering','is-dragging');streetTip.hidden=true}
+ event.preventDefault();streetFeed.scrollLeft=streetDrag.startScroll-distance});
+function finishStreetDrag(event,cancelled=false){if(event.pointerId!==streetDrag.pointerId)return;
+ const moved=streetDrag.moved,travel=event.clientX-streetDrag.startX,startNode=streetDrag.startNode;
+ streetDrag.pointerId=null;streetDrag.moved=false;streetDrag.startNode=null;
+ if(streetFeed.hasPointerCapture?.(event.pointerId))streetFeed.releasePointerCapture(event.pointerId);
+ streetFeed.classList.remove('is-dragging','is-steering');
+ if(moved&&!cancelled){
+  streetDrag.suppressClick=true;updateSlots();let target=centreNode;
+  /* A clear pull should feel like turning one page, not springing back because it stopped a few
+     pixels before the browser's geometric halfway point. Longer pulls still land on their nearest. */
+  if(target===startNode&&Math.abs(travel)>36){const index=slotNodes.indexOf(startNode);target=slotNodes[index+(travel<0?1:-1)]||target}
+  centreStreetNode(target)
+ }}
+streetFeed.addEventListener('pointerup',event=>finishStreetDrag(event));
+streetFeed.addEventListener('pointercancel',event=>finishStreetDrag(event,true));
+streetFeed.addEventListener('click',event=>{if(!streetDrag.suppressClick)return;streetDrag.suppressClick=false;event.preventDefault();event.stopImmediatePropagation()},true);
+streetFeed.addEventListener('keydown',event=>{if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return;event.preventDefault();walkStreet(event.key==='ArrowLeft'?-1:1)});
+$('#streetPrev').onclick=()=>walkStreet(-1);
+$('#streetNext').onclick=()=>walkStreet(1);
 
 /* The name of whatever is under the pointer, at the pointer. */
 const streetTip=document.createElement('div');streetTip.className='street-tip';streetTip.hidden=true;
@@ -331,7 +397,7 @@ $('#streetFeed').addEventListener('click',event=>{
  const unit=event.target.closest('.garage-unit');
  if(!unit||unit.classList.contains('is-centre'))return;
  event.preventDefault();streetTip.hidden=true;
- unit.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})});
+ centreStreetNode(unit)});
 if(innerWidth<=860&&!agentState.isOpen())$('#agentSidecar').hidden=true;else if(agentState.isOpen())openDock();
 $('#streetTabs').onclick=event=>{const button=event.target.closest('button');if(!button)return;
  tab=button.dataset.tab;

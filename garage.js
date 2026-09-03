@@ -6,6 +6,7 @@ async function api(path,options={}){const response=await fetch(path,{headers:{'C
 const agentState=window.VybAgentState;
 
 let hood=null,garage=null,mine=[],project=null,activeModule=null,comparison=null,workspaces=[],gitState=null,currentView='modules';
+let selectedSlot=null,moduleLoaderSlot='',moduleCandidates=[],dragProjectId=null;
 let linkedAgents=[],agentProfiles=[],localAgentProviders=[],localAgentBridge=false,activeAgentConnection='',agentHistory=[],agentHistoryPrimed=false,agentSending=false,agentUnread=0;
 const fileLists=new Map();
 const review={docs:{mine:null,compare:null},active:'mine',anchor:{mine:null,compare:null},range:{mine:null,compare:null},notes:new Map()};
@@ -252,9 +253,10 @@ function overlapScore(saved){
 }
 
 function refreshGarage(next,{keepModule=true}={}){
- const projectId=project?.id,slot=keepModule?activeModule?.slot:null;
+ const projectId=project?.id,slot=keepModule?activeModule?.slot:null,selected=selectedSlot;
  garage=next;project=garage.projects.find(item=>item.id===projectId)||garage.flagship||garage.projects[0]||null;
  activeModule=slot?moduleFor(project,slot):null;
+ selectedSlot=hood?.slots?.some(item=>item.key===selected)?selected:null;
  if(comparison&&!garage.bench.some(item=>item.id===comparison.project.id))comparison=null;
  fileLists.clear();renderStudio()
 }
@@ -266,7 +268,7 @@ function renderStudio(){
  $('#garageName').textContent=garage.name;$('#garageTagline').textContent=garage.tagline||`A staging workshop on ${hood.name}.`;
  $('#garageTags').innerHTML=(garage.tags||[]).map(tag=>`<span>${safe(tag)}</span>`).join('');
  $('#wanderLink').href=VybHood.link('wander.html',hood.slug);
- $('#projectList').innerHTML=garage.projects.map(item=>`<button class="project-card${item.id===project?.id?' active':''}" data-project="${item.id}">
+ $('#projectList').innerHTML=garage.projects.map(item=>`<button class="project-card${item.id===project?.id?' active':''}" data-project="${item.id}" draggable="true" aria-current="${item.id===project?.id?'true':'false'}" title="Click to put on lift · drag to reorder">
    <i class="project-light"></i><span><b>${safe(item.name)}</b><small>${safe(item.tagline||`${item.modules.length} mounted modules`)}</small></span>
    <em>${item.flagship?'display':item.modules.length}</em></button>`).join('')||'<p class="empty-copy">Stage your first project.</p>';
  $('#garageJump').innerHTML=mine.map(item=>`<a href="${VybHood.link('garage.html',item.neighborhood)}"${item.id===garage.id?' class="here"':''} style="--hood:${item.hue}"><b>${safe(item.name)}</b><span>${safe(item.neighborhood_name)}</span></a>`).join('');
@@ -282,13 +284,93 @@ function renderProject(){
  document.querySelectorAll('.workbench-tabs button').forEach(button=>button.classList.toggle('active',button.dataset.view===currentView));
  $('#projectOverview').hidden=currentView!=='modules'||Boolean(activeModule);$('#moduleRoom').hidden=currentView!=='modules'||!activeModule;$('#workflowRoom').hidden=currentView!=='workflow';
  $('#bayCount').textContent=`${project.modules.length} / ${hood.slots.length} mounted`;
- VybRack.render($('#garageRack'),{modules:VybHood.bays(hood,project.modules),links:[]},{layout:hood.layout,detail:false,onSelect:item=>{if(!item.empty)enterModule(item.id)}});
+ VybRack.render($('#garageRack'),{modules:VybHood.bays(hood,project.modules),links:[]},{layout:hood.layout,detail:false,interactive:true,draggable:true,selected:selectedSlot,
+  onSelect:item=>selectBay(item.id,item.empty),onOpen:item=>item.empty?openModuleLoader(item.id):enterModule(item.id),
+  onMove:(from,to)=>moveModule(from,to),onExternalDrop:(target,event)=>dropLockerModule(target,event)});
  VybFlow.render($('#flowView'),project.workflow||{nodes:[],edges:[]},{onSelect:node=>node&&toast(`${node.label}${node.note?' — '+node.note:''}`)});
- if(activeModule)renderModuleRoom();refreshAgentContextCard()
+ renderBaySelection();if(activeModule)renderModuleRoom();refreshAgentContextCard()
+}
+
+function renderBaySelection(){
+ const panel=$('#baySelection');if(!selectedSlot||currentView!=='modules'||activeModule){panel.hidden=true;return}
+ const bay=slotInfo(selectedSlot),module=moduleFor(project,selectedSlot);panel.hidden=false;
+ $('#baySelectionLabel').textContent=`${bay.label} bay · ${module?'mounted':'empty'}`;
+ $('#baySelectionName').textContent=module?.name||'Load a module here';
+ $('#baySelectionHint').textContent=module?(module.source||module.note||'Ready to open, move, or replace'):bay.hint||'Choose a detected workspace module';
+ $('#editSelectedBay').textContent=module?'Change mount':'Load module';
+ $('#openSelectedBay').hidden=!module
+}
+
+function selectBay(slot,empty=false){
+ selectedSlot=slot;
+ document.querySelectorAll('#garageRack .pod').forEach(node=>{const selected=node.dataset.id===slot;node.classList.toggle('selected',selected);node.setAttribute('aria-pressed',String(selected))});
+ renderBaySelection();if(empty)openModuleLoader(slot)
+}
+
+function fillModuleForm(module){
+ $('#moduleMountName').value=module?.name||'';$('#moduleMountSource').value=module?.source||'';
+ $('#moduleMountLang').value=module?.lang||'';$('#moduleMountNote').value=module?.note||'';
+ $('#clearModuleMount').hidden=!module
+}
+
+async function openModuleLoader(slot){
+ if(!project)return;moduleLoaderSlot=slot;selectedSlot=slot;
+ const bay=slotInfo(slot),module=moduleFor(project,slot);
+ $('#moduleLoaderBay').textContent=`${bay.label} bay · ${bay.role}`;
+ $('#moduleLoaderTitle').textContent=module?`Change ${module.name}`:'Load a module';
+ $('#moduleLoaderHint').textContent=module
+  ?'Pick another detected source, edit this mount, or clear the bay. Published files and line notes stay only when the source stays the same.'
+  :(bay.hint||'Choose something detected in the paired workspace, or describe the mount yourself.');
+ fillModuleForm(module);dialogOpen($('#moduleLoaderDialog'));await loadModuleCandidates()
+}
+
+async function loadModuleCandidates(){
+ if(!project||!moduleLoaderSlot)return;
+ const list=$('#moduleCandidates');list.innerHTML='<p class="empty-copy">Scanning the paired workspace…</p>';
+ try{
+  const result=await api(`/api/projects/${project.id}/module-candidates`);moduleCandidates=result.modules||[];
+  if(!result.paired){list.innerHTML=`<p class="empty-copy">${safe(result.note)} Open Manage workshop to pair a folder.</p>`;return}
+  list.innerHTML=moduleCandidates.length?moduleCandidates.map((item,index)=>`<button class="module-candidate${item.mounted_slot?' mounted':''}" type="button" data-candidate="${index}">
+   <span><b>${safe(item.name)}</b><small>${safe(item.source||'workspace root')} · ${safe(item.lang||'mixed')} · ${item.files} file${item.files===1?'':'s'}</small></span>
+   <em>${item.mounted_slot?item.mounted_slot===moduleLoaderSlot?'mounted here':`move from ${safe(slotInfo(item.mounted_slot).label)}`:'mount →'}</em></button>`).join(''):'<p class="empty-copy">No readable modules were detected. You can still describe this bay below.</p>'
+ }catch(error){moduleCandidates=[];list.innerHTML=`<p class="empty-copy">${safe(error.message)}</p>`}
+}
+
+async function mountModule(slot,module){
+ const projectId=project.id;
+ try{
+  const result=await api(`/api/projects/${projectId}/modules/${encodeURIComponent(slot)}`,{method:'POST',body:JSON.stringify(module)});
+  if($('#moduleLoaderDialog').open)$('#moduleLoaderDialog').close();selectedSlot=slot;activeModule=null;comparison=null;
+  refreshGarage(result.garage,{keepModule:false});toast(module.remove?'Bay cleared.':'Module mounted on the lift.')
+ }catch(error){toast(error.message)}
+}
+
+async function mountCandidate(candidate){
+ if(candidate.mounted_slot){
+  if(candidate.mounted_slot===moduleLoaderSlot){$('#moduleLoaderDialog').close();selectedSlot=moduleLoaderSlot;renderProject();return}
+  $('#moduleLoaderDialog').close();await moveModule(candidate.mounted_slot,moduleLoaderSlot);return
+ }
+ const files=Number(candidate.files)||1;
+ await mountModule(moduleLoaderSlot,{name:candidate.name,source:candidate.source||'',lang:candidate.lang||'',status:candidate.status||'active',weight:Math.max(1,Math.min(9,1+Math.floor(files/4))),note:`${files} detected file${files===1?'':'s'}`})
+}
+
+async function moveModule(from,to){
+ if(!project||from===to)return;const projectId=project.id;
+ try{
+  const result=await api(`/api/projects/${projectId}/module-layout`,{method:'POST',body:JSON.stringify({from,to})});
+  selectedSlot=to;activeModule=null;comparison=null;refreshGarage(result.garage,{keepModule:false});toast(moduleFor(project,from)?'Modules swapped.':'Module moved.')
+ }catch(error){renderProject();toast(error.message)}
+}
+
+async function dropLockerModule(target,event){
+ let packet;try{packet=JSON.parse(event.dataTransfer.getData('application/x-vyb-locker-module')||'null')}catch{return}
+ if(!packet)return;const own=moduleFor(project,target.id);if(!own){selectedSlot=target.id;renderProject();toast('Load one of your modules here before comparing against it.');return}
+ const saved=garage.bench.find(item=>item.id===Number(packet.project)),module=moduleFor(saved,packet.slot);if(!saved||!module)return;
+ selectedSlot=target.id;activeModule=own;comparison={project:saved,slot:packet.slot};currentView='modules';renderProject();renderLocker();syncUrl();await loadOwnFiles(project,activeModule);toast(`${module.name} pulled beside ${own.name}.`)
 }
 
 async function enterModule(slot){
- activeModule=moduleFor(project,slot);if(!activeModule)return;
+ selectedSlot=slot;activeModule=moduleFor(project,slot);if(!activeModule){openModuleLoader(slot);return}
  currentView='modules';syncUrl();renderProject();renderLocker();
  await loadOwnFiles(project,activeModule)
 }
@@ -336,7 +418,7 @@ function renderLocker(){
  const count=garage.bench.reduce((sum,item)=>sum+(item.modules||[]).length,0);$('#lockerCount').textContent=count;
  $('#lockerList').innerHTML=saved.length?saved.map(item=>{const score=overlapScore(item);return `<article class="locker-project${comparison?.project.id===item.id?' active':''}">
    <header><div><span class="locker-overlap">${score?`${score} overlap`:'different angle'}</span><h3>${safe(item.name)}</h3><p>from @${safe(item.origin_handle)}</p></div><button data-checkout="${item.id}" title="Write saved snapshot into your paired workspace">⇩</button></header>
-   <div class="locker-modules">${(item.modules||[]).map(module=>{const files=item.locker_files?.[module.slot]||[],aligned=moduleFor(project,module.slot);return `<button data-pull-module="${item.id}:${safe(module.slot)}" class="locker-module${comparison?.project.id===item.id&&comparison.slot===module.slot?' selected':''}">
+   <div class="locker-modules">${(item.modules||[]).map(module=>{const files=item.locker_files?.[module.slot]||[],aligned=moduleFor(project,module.slot);return `<button data-pull-module="${item.id}:${safe(module.slot)}" data-locker-project="${item.id}" data-locker-slot="${safe(module.slot)}" draggable="true" title="Click to compare · drag onto one of your modules" class="locker-module${comparison?.project.id===item.id&&comparison.slot===module.slot?' selected':''}">
      <i style="--tone:var(--role-${safe(slotInfo(module.slot).role)})"></i><span><b>${safe(module.name)}</b><small>${safe(slotInfo(module.slot).label)} · ${safe(module.lang||'mixed')}</small></span><em>${files.length?`${files.length} files`:'design'}</em>${aligned?'<strong>lines up</strong>':''}</button>`}).join('')}</div>
   </article>`}).join(''):`<div class="locker-empty"><span>▤</span><b>${needle?'No saved module matches.':'Your locker is empty.'}</b><p>${needle?'Try another filter.':'Wander the neighborhood and save the modules you want to inspect.'}</p><a href="${VybHood.link('wander.html',hood.slug)}">wander for modules →</a></div>`
 }
@@ -476,26 +558,53 @@ async function checkoutSaved(id){
  try{const result=await api(`/api/projects/${id}/checkout`,{method:'POST',body:'{}'});refreshGarage(result.garage);toast(`Saved snapshot checked out to ${result.path}`)}catch(error){toast(error.message)}
 }
 
+function putProjectOnLift(id){
+ const next=garage?.projects.find(item=>item.id===Number(id));if(!next)return;
+ project=next;activeModule=null;selectedSlot=null;comparison=null;currentView='modules';renderStudio()
+}
+
+async function reorderProject(dragged,target,before){
+ if(dragged===target)return;const order=garage.projects.map(item=>item.id).filter(id=>id!==dragged),index=order.indexOf(target);
+ if(index<0)return;order.splice(index+(before?0:1),0,dragged);
+ try{const result=await api(`/api/garages/${garage.id}/projects/reorder`,{method:'POST',body:JSON.stringify({order})});refreshGarage(result.garage);toast('Project lift order saved.')}
+ catch(error){renderStudio();toast(error.message)}
+}
+
 async function load(){
  const active=await VybHood.mountSwitcher($('#hoodSwitcher'),{onChange:slug=>{location.search=`?n=${encodeURIComponent(slug)}`}});if(!active){toast('The local VybPort service is not answering.');return}
  hood=(await api(`/api/neighborhoods/${encodeURIComponent(active.slug)}`)).neighborhood;
  try{mine=(await api('/api/garages?mine=1')).garages}catch{mine=[]}
  garage=mine.find(item=>item.neighborhood===hood.slug)||null;
- if(garage){const params=new URLSearchParams(location.search),wanted=Number(params.get('project'));project=garage.projects.find(item=>item.id===wanted)||garage.flagship||garage.projects[0];const slot=params.get('module');activeModule=moduleFor(project,slot)}
+ if(garage){const params=new URLSearchParams(location.search),wanted=Number(params.get('project'));project=garage.projects.find(item=>item.id===wanted)||garage.flagship||garage.projects[0];const slot=params.get('module');activeModule=moduleFor(project,slot);selectedSlot=activeModule?.slot||null}
  renderStudio();await Promise.all([loadWorkspaces(),loadGarageAgents()]);if(activeModule)await loadOwnFiles(project,activeModule);refreshGit();
  const params=new URLSearchParams(location.search);if(activeAgentConnection&&(agentState.isOpen()||params.get('agent')==='open'))await openGarageAgent()
 }
 
 $('#openForm').onsubmit=async event=>{event.preventDefault();try{const {user}=await api('/api/auth/me');if(!user){location.href='./register.html';return}const result=await api('/api/garages',{method:'POST',body:JSON.stringify({neighborhood:hood.slug,name:$('#openName').value.trim(),tagline:$('#openTagline').value.trim(),tags:[...document.querySelectorAll('#openTags input:checked')].map(input=>input.value)})});mine=(await api('/api/garages?mine=1')).garages;garage=result.garage;project=garage.flagship||garage.projects[0];renderStudio();toast(`${garage.name} is open.`)}catch(error){toast(error.message)}};
 
-$('#projectList').onclick=event=>{const button=event.target.closest('[data-project]');if(!button)return;project=garage.projects.find(item=>item.id===Number(button.dataset.project));activeModule=null;comparison=null;currentView='modules';renderStudio()};
+$('#projectList').onclick=event=>{const button=event.target.closest('[data-project]');if(button)putProjectOnLift(button.dataset.project)};
+$('#projectList').ondragstart=event=>{const button=event.target.closest('[data-project]');if(!button)return;dragProjectId=Number(button.dataset.project);button.classList.add('dragging');event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('application/x-vyb-project',String(dragProjectId))};
+$('#projectList').ondragover=event=>{const button=event.target.closest('[data-project]');if(!button||Number(button.dataset.project)===dragProjectId)return;event.preventDefault();document.querySelectorAll('.project-card').forEach(node=>node.classList.remove('drop-before','drop-after'));const before=event.clientY<button.getBoundingClientRect().top+button.offsetHeight/2;button.classList.add(before?'drop-before':'drop-after')};
+$('#projectList').ondrop=event=>{const button=event.target.closest('[data-project]');if(!button||!dragProjectId)return;event.preventDefault();const before=event.clientY<button.getBoundingClientRect().top+button.offsetHeight/2;const dragged=dragProjectId;dragProjectId=null;reorderProject(dragged,Number(button.dataset.project),before)};
+$('#projectList').ondragend=()=>{dragProjectId=null;document.querySelectorAll('.project-card').forEach(node=>node.classList.remove('dragging','drop-before','drop-after'))};
+document.querySelector('.workbench').addEventListener('dragover',event=>{if(dragProjectId)event.preventDefault()});
+document.querySelector('.workbench').addEventListener('drop',event=>{if(!dragProjectId)return;event.preventDefault();const id=dragProjectId;dragProjectId=null;putProjectOnLift(id)});
 $('#newProject').onclick=()=>{dialogOpen($('#newProjectDialog'));$('#newProjectName').focus()};
 $('#newProjectForm').onsubmit=async event=>{event.preventDefault();try{const result=await api(`/api/garages/${garage.id}/projects`,{method:'POST',body:JSON.stringify({name:$('#newProjectName').value.trim(),tagline:$('#newProjectTagline').value.trim()})});$('#newProjectDialog').close();project={id:result.project};refreshGarage(result.garage,{keepModule:false});toast('New project is on the lift.')}catch(error){toast(error.message)}};
+$('#editSelectedBay').onclick=()=>selectedSlot&&openModuleLoader(selectedSlot);
+$('#openSelectedBay').onclick=()=>selectedSlot&&enterModule(selectedSlot);
+$('#refreshModuleCandidates').onclick=loadModuleCandidates;
+$('#cancelModuleMount').onclick=()=>$('#moduleLoaderDialog').close();
+$('#moduleCandidates').onclick=event=>{const button=event.target.closest('[data-candidate]');if(button)mountCandidate(moduleCandidates[Number(button.dataset.candidate)])};
+$('#moduleMountForm').onsubmit=event=>{event.preventDefault();const existing=moduleFor(project,moduleLoaderSlot);mountModule(moduleLoaderSlot,{name:$('#moduleMountName').value.trim(),source:$('#moduleMountSource').value.trim(),lang:$('#moduleMountLang').value.trim(),note:$('#moduleMountNote').value.trim(),status:existing?.status||'active',weight:existing?.weight||3})};
+$('#clearModuleMount').onclick=()=>{const module=moduleFor(project,moduleLoaderSlot);if(!module)return;if(confirm(`Clear ${module.name} from the ${slotInfo(moduleLoaderSlot).label} bay?\n\nIts public snapshot and line notes for this bay will also be removed.`))mountModule(moduleLoaderSlot,{remove:true})};
 $('#makeFlagship').onclick=async()=>{try{const result=await api(`/api/projects/${project.id}/flagship`,{method:'POST',body:'{}'});refreshGarage(result.garage);toast('Visitors will now see this project first.')}catch(error){toast(error.message)}};
-$('#moduleBack').onclick=()=>{activeModule=null;comparison=null;renderProject();renderLocker();syncUrl()};
+$('#moduleBack').onclick=()=>{selectedSlot=activeModule?.slot||selectedSlot;activeModule=null;comparison=null;renderProject();renderLocker();syncUrl()};
 document.querySelector('.workbench-tabs').onclick=event=>{const button=event.target.closest('[data-view]');if(!button)return;currentView=button.dataset.view;if(currentView==='workflow')activeModule=null;renderProject();syncUrl()};
 $('#lockerSearch').oninput=renderLocker;
 $('#lockerList').onclick=event=>{const pull=event.target.closest('[data-pull-module]'),checkout=event.target.closest('[data-checkout]');if(checkout){checkoutSaved(Number(checkout.dataset.checkout));return}if(pull){const [id,slot]=pull.dataset.pullModule.split(':');pullModule(Number(id),slot)}};
+$('#lockerList').ondragstart=event=>{const module=event.target.closest('[data-locker-project]');if(!module)return;module.classList.add('dragging');event.dataTransfer.effectAllowed='copy';event.dataTransfer.setData('application/x-vyb-locker-module',JSON.stringify({project:Number(module.dataset.lockerProject),slot:module.dataset.lockerSlot}))};
+$('#lockerList').ondragend=event=>event.target.closest('[data-locker-project]')?.classList.remove('dragging');
 $('#modulePair').onclick=async event=>{const own=event.target.closest('[data-own-file]'),locker=event.target.closest('[data-locker-file]'),publish=event.target.closest('[data-publish]'),share=event.target.closest('[data-share-module]'),checkout=event.target.closest('[data-checkout]');
  if(own){openOwnReview(own.dataset.ownFile);return}if(locker){openLockerReview(locker.dataset.lockerFile);return}if(publish){publishSelected(publish.dataset.publish);return}if(share){focusModule(share.dataset.shareModule);return}if(checkout){checkoutSaved(Number(checkout.dataset.checkout));return}if(event.target.closest('[data-close-compare]')){comparison=null;renderModuleRoom();renderLocker();refreshAgentContextCard()}};
 

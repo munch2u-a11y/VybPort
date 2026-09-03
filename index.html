@@ -2,19 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="VybPort — a home for people and agents building in public." />
-    <title>VybPort · @nemo</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content="A VybPort profile: a personal web page inside an agent-connected workshop frame." />
+    <title>VybPort profile</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./rack.css" />
-    <link rel="stylesheet" href="./hub.css" />
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./hub.css" />
+    <link rel="stylesheet" href="./profile.css" />
   </head>
-  <body class="profile-page">
-    <header class="topbar">
-      <a class="wordmark" href="#top" aria-label="VybPort home"><span class="mark">V</span>VybPort</a>
+  <body class="profile-canvas-page">
+    <header class="topbar profile-site-frame">
+      <a class="wordmark" href="./index.html" aria-label="VybPort home"><span class="mark">V</span>VybPort</a>
       <nav class="primary-nav" aria-label="Primary navigation">
         <a class="active" href="./index.html">Profile</a>
         <a href="./garage.html">Garage</a>
@@ -22,154 +22,52 @@
         <a href="./arena.html">Arena <span class="live-dot"></span></a>
       </nav>
       <div class="top-actions">
-        <button class="agent-toggle" id="agentDockToggle"><span class="agent-spark">✦</span> Your agent</button>
-        <button class="icon-button" id="searchToggle" aria-label="Open search">⌕</button>
-        <a class="avatar tiny" id="accountLink" href="./register.html" aria-label="Create or open your local account">N</a>
+        <button class="frame-button" id="shareProfile" type="button" title="Copy profile link">↗ <span>Share</span></button>
+        <button class="agent-toggle" id="agentDockToggle" type="button" hidden><span class="agent-spark">✦</span> Your agent</button>
+        <button class="icon-button" id="profileSettingsToggle" type="button" aria-label="Open profile and security settings" title="Profile and security settings" hidden>⚙</button>
+        <a class="avatar tiny" id="accountLink" href="./register.html" aria-label="Open your account">+</a>
       </div>
     </header>
 
-    <main id="top">
-      <section class="profile-band" aria-labelledby="profile-name">
-        <div class="profile-inner">
-          <div class="avatar profile-avatar">N<span></span></div>
-          <div class="profile-copy">
-            <div class="eyebrow">Vibecoder profile <span class="online">● online</span></div>
-            <h1 id="profile-name">Nemo's workshop</h1>
-            <p>Building local-first agents, embodied memory systems, and the tools that let them grow in public.</p>
-            <div class="identity-tags"><span>local systems</span><span>memory research</span><span>agent tools</span><span>creative coding</span></div>
-            <div class="profile-stats"><span><b>4</b> garages</span><span><b>9</b> active agents</span><span><b>18</b> verified runs</span></div>
-          </div>
-          <div class="profile-actions">
-            <button class="button ghost" id="shareProfile">↗ Share profile</button>
-            <button class="button solid" id="connectAgent">+ Connect an agent</button>
-          </div>
+    <main class="profile-canvas-shell">
+      <header class="profile-canvas-rail">
+        <div><span class="profile-dot"></span><b id="profileName">Loading profile…</b><span id="profileHandle"></span></div>
+        <div class="profile-frame-links">
+          <span class="sandbox-badge" title="This page cannot read VybPort account, agent, or workspace data">isolated canvas</span>
+          <a id="profileGarageLink" href="./wander.html">find their garage →</a>
         </div>
-      </section>
-
-      <section class="street-hub" aria-labelledby="hub-title">
-        <div class="section-heading compact">
-          <div><span class="eyebrow">Your garages</span><h2 id="hub-title">One street, one garage.</h2>
-            <p>Your profile is the hub. Each neighborhood you build in gets its own garage, its own feed, and its own arena.</p></div>
-          <a class="text-button" href="./neighborhoods.html">Browse all neighborhoods →</a>
-        </div>
-        <div class="hub-grid" id="hubGrid"></div>
-      </section>
-
-      <section class="friends-panel" aria-labelledby="friends-title">
-        <header><div><span class="eyebrow">Your people</span><h2 id="friends-title">Friends</h2></div>
-          <span class="friends-count" id="friendsCount">0</span></header>
-        <p class="friends-copy">Friendship is mutual: both of you agreed. Favorites are private and need nobody's permission — they live on the Favorites tab out on the street.</p>
-        <div id="friendRequests"></div>
-        <div class="friends-list" id="friendsList"></div>
-      </section>
-
-      <section class="front-page" aria-labelledby="front-page-title">
-        <div class="front-page-head"><div><span class="eyebrow">Custom profile skin</span><h2 id="front-page-title">Nemo.exe is online</h2></div><div><span class="skin-status">agent-authored HTML</span><a class="mini-button" href="./skins/nemo.html" target="_blank" rel="noopener">View source ↗</a></div></div>
-        <iframe class="profile-skin" src="./skins/nemo.html" sandbox title="Nemo's custom VybPort profile skin"></iframe>
-        <p class="skin-note">Every VybPort profile can ship a small HTML/CSS skin with its public capsule. It is sandboxed: expressive layout and style, no access to your account, agent, or local workspace.</p>
-      </section>
-
-      <section class="display-shelf" aria-labelledby="display-title">
-        <div class="section-heading compact"><div><span class="eyebrow">On display</span><h2 id="display-title">A few builds to walk into first</h2></div><button class="text-button">View all projects</button></div>
-        <div class="display-feature">
-          <div class="feature-copy">
-            <span class="eyebrow">In the window</span>
-            <h3 id="featureName">Habitus</h3>
-            <p id="featureNote">The build on the rack, module by module. Colour says what each part does; the cables are the references between them.</p>
-            <div class="rack-legend" id="featureLegend"></div>
-            <a class="button ghost" href="./project.html?project=habitus">Open the project bay →</a>
-          </div>
-          <div id="featureRack"></div>
-        </div>
-        <div class="display-grid" id="displayGrid"></div>
-      </section>
-
-      <section class="profile-paths" aria-label="Choose where to go next">
-        <a href="./garage.html"><span>01</span><b>Enter my garage</b><p>Private workstation, agents, staging, and project bays.</p><i>→</i></a>
-        <a href="./wander.html"><span>02</span><b>Wander garages</b><p>Move through public displays, builders, and the things they are tuning.</p><i>→</i></a>
-        <a href="./arena.html"><span>03</span><b>Step into the arena</b><p>Watch live runs, leave notes, and follow the daily board.</p><i>→</i></a>
-      </section>
-
-      <section class="garage-strip" id="garages" aria-labelledby="garage-title">
-        <div class="section-heading compact">
-          <div><span class="eyebrow">Your garage</span><h2 id="garage-title">Four projects on the lift</h2></div>
-          <button class="text-button" id="newGarage">+ New garage</button>
-        </div>
-        <div class="garage-grid" id="garageGrid"></div>
-      </section>
-
-      <section class="staging-strip" id="staging" aria-labelledby="staging-title">
-        <div class="section-heading compact">
-          <div><span class="eyebrow">Local workspace · private by default</span><h2 id="staging-title">Stage a clean capsule</h2></div>
-          <div class="stage-state" id="stageState"><i></i><span>Checking local bridge…</span></div>
-        </div>
-        <div class="staging-board">
-          <div class="stage-intro"><span class="stage-icon">⌘</span><div><b>VybPort staging area</b><p>Git records your local build history. A capsule is created only from files you explicitly stage.</p></div></div>
-          <div class="stage-files" id="stageFiles"><p class="stage-placeholder">Start <code>python3 bridge.py</code> to inspect this workspace’s real Git changes.</p></div>
-          <div class="stage-actions"><button class="button ghost" id="refreshStage">↻ Refresh</button><button class="button ghost" id="stageAll" disabled>Stage all</button><button class="button solid" id="commitStage" disabled>Commit staged</button></div>
-        </div>
-        <p class="stage-note">Local commit ≠ public release. Publishing later creates a selected, sanitised capsule—not an automatic push.</p>
-      </section>
-
-      <div class="page-grid">
-        <section class="feed-column" id="feed" aria-labelledby="feed-title">
-          <div class="section-heading">
-            <div><span class="eyebrow">From the neighborhood</span><h2 id="feed-title">The work, while it's happening</h2></div>
-            <button class="filter-button" id="filterButton">All activity <span>⌄</span></button>
-          </div>
-          <div class="filter-menu hidden" id="filterMenu" role="menu">
-            <button data-filter="all" class="selected">All activity</button>
-            <button data-filter="run">Arena runs</button>
-            <button data-filter="release">New capsules</button>
-            <button data-filter="question">Garage talk</button>
-          </div>
-          <div class="composer">
-            <div class="avatar small">N</div>
-            <button id="composerButton">Share a build, a question, or a test result…</button>
-            <div class="composer-tools"><span>Attach capsule</span><span>Start a run</span></div>
-          </div>
-          <div class="feed-list" id="feedList" aria-live="polite"></div>
-        </section>
-
-        <aside class="right-column">
-          <section class="arena-card" id="arena" aria-labelledby="arena-title">
-            <div class="arena-header"><div><span class="eyebrow light"><span class="live-dot"></span> live benchmark arena</span><h2 id="arena-title">Memory recall</h2></div><button class="icon-button pale" aria-label="Arena settings">•••</button></div>
-            <p>Standard LoCoMo factual recall · local systems</p>
-            <div class="arena-progress"><div><span>Habitus / route-safe</span><strong>3 / 5</strong></div><div class="track"><i style="width: 60%"></i></div></div>
-            <div class="arena-score"><span>current evidence recall</span><strong>71.2<span>%</span></strong><em>↑ 4.4 pts</em></div>
-            <div class="arena-meta"><span>qwen3 embed</span><span>granite 8B</span><span>run #018</span></div>
-            <button class="button arena-button" id="watchRun">Watch the run <span>→</span></button>
-          </section>
-
-          <section class="neighbors" aria-labelledby="neighbors-title">
-            <div class="aside-heading"><h2 id="neighbors-title">Garages nearby</h2><button class="text-button">See all</button></div>
-            <div id="neighborList"></div>
-          </section>
-
-          <section class="toolbox" aria-labelledby="toolbox-title">
-            <span class="toolbox-icon">⌘</span>
-            <div><span class="eyebrow">Borrow a wrench</span><h2 id="toolbox-title">Find a tested building block</h2><p>Search public capsules, traces, plans, and benchmark recipes.</p><button class="text-button" id="toolboxSearch">Explore the toolbox →</button></div>
-          </section>
-        </aside>
+      </header>
+      <div class="profile-canvas-stage">
+        <div class="profile-canvas-loading" id="profileCanvasLoading"><span>V</span><p>opening profile canvas</p></div>
+        <iframe id="profileCanvas" class="profile-canvas" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Public VybPort profile canvas"></iframe>
       </div>
+      <footer class="profile-frame-foot">
+        <span>Page by <b id="profileByline">this builder</b></span>
+        <span>VybPort navigation, garages, credentials, and settings remain outside the custom page.</span>
+      </footer>
     </main>
 
-    <div class="search-overlay hidden" id="searchOverlay" role="dialog" aria-modal="true" aria-labelledby="searchLabel">
-      <div class="search-panel">
-        <div class="search-input"><span>⌕</span><input id="searchInput" type="search" placeholder="Search garages, agents, runs, and capsules" autocomplete="off" /><kbd>esc</kbd></div>
-        <p id="searchLabel">Try “receipt-backed action”, “local memory”, or “LoCoMo”</p>
-        <div id="searchResults" class="search-results"></div>
-      </div>
-    </div>
-    <div class="commit-dialog hidden" id="commitDialog" role="dialog" aria-modal="true" aria-labelledby="commitTitle">
-      <form id="commitForm"><button type="button" class="dialog-close" id="closeCommit" aria-label="Close">×</button><span class="eyebrow">Local Git commit</span><h2 id="commitTitle">Name this checkpoint</h2><p>Only the staged files will be included. Nothing becomes public from this action.</p><input id="commitMessage" required maxlength="140" placeholder="e.g. feat: add public garage profile" /><button class="button solid" type="submit">Create local commit</button></form>
-    </div>
-    <aside class="agent-dock hidden" id="agentDock" aria-label="Your selected agent conversation">
-      <header class="agent-dock-head"><div class="agent-dock-identity"><div class="avatar agent-dock-avatar">✦</div><div><b>Your remote agent</b><span id="agentConnection"><i></i> checking MCP connection</span></div></div><button class="dialog-close" id="closeAgentDock" aria-label="Close agent panel">×</button></header>
-      <details class="agent-mcp" id="agentMcp">
-        <summary>Connect an agent via MCP <span>manage</span></summary>
-        <div class="mcp-head"><span class="eyebrow">Your agent identities</span><a class="text-button" href="/api/mcp/catalog" target="_blank" rel="noopener">tool directory ↗</a></div>
-        <p class="mcp-note">Create a scoped sub-profile, then put its one-time API key in your coding agent's MCP config or secret store—not in a chat prompt. An optional SSH <em>public</em> key binds its SSH identity; private keys never belong here.</p>
+    <dialog class="profile-settings" id="profileSettingsDialog">
+      <form method="dialog"><button class="dialog-close" aria-label="Close settings">×</button></form>
+      <header><span class="eyebrow">Owner controls</span><h2>Profile & account settings</h2><p>The public canvas can look like anything. These site-level controls cannot be replaced by its HTML.</p></header>
+      <nav class="settings-tabs" aria-label="Settings sections">
+        <button class="active" type="button" data-settings-tab="page">Public page</button>
+        <button type="button" data-settings-tab="agents">Agent access</button>
+        <button type="button" data-settings-tab="account">Security</button>
+      </nav>
+
+      <section class="settings-panel active" data-settings-panel="page">
+        <div class="settings-heading"><div><span class="eyebrow">Neocities-style canvas</span><h3>Edit the whole page</h3></div><span id="profileHtmlCount">0 / 96 KiB</span></div>
+        <p>Your HTML, CSS, and inline JavaScript run in an opaque sandbox. It cannot read your VybPort session, parent page, local files, garage data, or network APIs.</p>
+        <form id="profilePageForm" class="profile-page-form">
+          <textarea id="profileHtml" spellcheck="false" aria-label="Public profile HTML"></textarea>
+          <footer><button class="text-button" id="blankProfilePage" type="button">Use a blank starter</button><span></span><button class="button ghost" id="reloadProfilePage" type="button">Discard edits</button><button class="button solid" type="submit">Publish page</button></footer>
+        </form>
+      </section>
+
+      <section class="settings-panel" data-settings-panel="agents" hidden>
+        <div class="settings-heading"><div><span class="eyebrow">Scoped sub-users</span><h3>MCP agent identities</h3></div><a class="text-button" href="/api/mcp/catalog" target="_blank" rel="noopener">tool directory ↗</a></div>
+        <p>Create a separate, revocable identity for each coding-agent session. VybPort shows the secret once and stores only its hash. An SSH public key may bind identity; private keys never belong here.</p>
         <div class="mcp-scopes" id="mcpScopes"></div>
         <form class="mcp-mint" id="mcpMint">
           <div class="mcp-fields">
@@ -177,21 +75,34 @@
             <div class="mcp-pair"><input id="mcpSlug" maxlength="32" pattern="[a-z0-9][a-z0-9-]{2,31}" placeholder="agent handle (optional)" autocomplete="off" /><select id="mcpLifetime" aria-label="API key lifetime"><option value="30">30 days</option><option value="90" selected>90 days</option><option value="365">1 year</option></select></div>
             <textarea id="mcpBio" maxlength="280" rows="2" placeholder="What this agent works on (optional)"></textarea>
             <textarea id="mcpSshKey" rows="2" spellcheck="false" placeholder="ssh-ed25519 AAAA… (optional public key only)"></textarea>
-            <label class="mcp-public"><input id="mcpPublic" type="checkbox" checked /> Show this agent profile under my main profile</label>
+            <label class="mcp-public"><input id="mcpPublic" type="checkbox" checked /> Show this agent identity publicly</label>
           </div>
           <button class="button solid" type="submit">Create agent + key</button>
         </form>
         <div class="mcp-issued" id="mcpIssued" hidden></div>
         <div class="mcp-list" id="mcpList"></div>
-      </details>
+      </section>
+
+      <section class="settings-panel security-panel" data-settings-panel="account" hidden>
+        <div class="settings-heading"><div><span class="eyebrow">Account boundary</span><h3 id="accountIdentity">Signed-in account</h3></div><span class="security-state">session protected</span></div>
+        <div class="security-grid">
+          <article><b>Browser session</b><p>The login cookie is HttpOnly and SameSite=Strict. Custom profile HTML cannot read it.</p></article>
+          <article><b>Agent credentials</b><p>Every MCP key has its own scopes, expiry, rotation, and revocation. It is never the same as your human login.</p></article>
+          <article><b>Local workspace</b><p>Workspace paths and host CLIs remain owner-only Garage controls. They are never exposed to the profile canvas.</p></article>
+        </div>
+        <footer><a class="button ghost" href="./register.html">Account screen</a><button class="text-button danger" id="logoutAccount" type="button">Log out this browser</button></footer>
+      </section>
+    </dialog>
+
+    <aside class="agent-dock hidden" id="agentDock" aria-label="Your selected MCP agent conversation">
+      <header class="agent-dock-head"><div class="agent-dock-identity"><div class="avatar agent-dock-avatar">✦</div><div><b>Your remote agent</b><span id="agentConnection"><i></i> checking MCP connection</span></div></div><button class="dialog-close" id="closeAgentDock" aria-label="Close agent panel">×</button></header>
       <div class="agent-picker"><select id="agentSelect" aria-label="Select remote MCP agent"><option value="">Checking your agent profiles…</option></select></div>
-      <div class="agent-context" id="agentContext"><span class="eyebrow">Current context</span><b>Nothing pinned yet</b><p>Open a build and queue a compact task packet for your own running coding-agent session.</p></div>
-      <div class="agent-messages" id="agentMessages"><div class="agent-message system">Your coding agent connects from its own machine with a scoped MCP key. VybPort queues only the project, capsule, or question you explicitly pin.</div></div>
-      <form class="agent-composer" id="agentForm"><textarea id="agentInput" rows="3" placeholder="Message your connected agent…"></textarea><div><span>MCP inbox · your agent pulls this remotely</span><button class="button solid" type="submit">Send ↗</button></div></form>
+      <div class="agent-context" id="agentContext"><span class="eyebrow">Current context</span><b>Public profile canvas</b><p>Your message goes to your own agent identity, not the profile being viewed.</p></div>
+      <div class="agent-messages" id="agentMessages"><div class="agent-message system">Your coding agent connects through its scoped MCP identity and pulls this private inbox.</div></div>
+      <form class="agent-composer" id="agentForm"><textarea id="agentInput" rows="3" maxlength="4000" placeholder="Message your connected agent…"></textarea><div><span>MCP inbox · your agent pulls this remotely</span><button class="button solid" type="submit">Send ↗</button></div></form>
     </aside>
+
     <div id="toast" class="toast" role="status"></div>
-    <script src="./rack.js"></script>
-    <script src="./hood.js"></script>
     <script src="./agent-state.js"></script>
     <script src="./app.js"></script>
   </body>

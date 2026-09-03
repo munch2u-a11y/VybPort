@@ -24,14 +24,16 @@ const LANG_GLYPHS={
 LANG_GLYPHS.TypeScript=LANG_GLYPHS.JavaScript;
 const glyph=(role,lang)=>((role==='interface'||role==='logic')&&LANG_GLYPHS[lang])||GLYPHS[role]||GLYPHS.logic;
 
-function podMarkup(module,largest){
+function podMarkup(module,largest,options={}){
  const share=Math.max(6,Math.round(module.files/largest*100));
  /* A street's bay label sits above whatever is mounted in it, so two garages read line for line. */
  const head=module.slot?`<span class="pod-slot">${safe(module.slot)}</span>`:'';
  const meta=module.empty
-  ?`<div class="pod-meta"><span>nothing mounted</span></div>`
+  ?`<div class="pod-meta"><span>${options.interactive?'click to load':'nothing mounted'}</span></div>`
   :`<div class="pod-meta">${module.lang?`<span class="pod-lang">${safe(module.lang)}</span>`:''}${module.bytes?`<span>${module.files} file${module.files===1?'':'s'}</span><span>${size(module.bytes)}</span>`:`<span>${safe(module.status||'active')}</span>`}</div>`;
- return `<button class="pod${module.empty?' empty':''}" type="button" data-id="${safe(module.id)}" data-role="${safe(module.role)}" data-status="${safe(module.status||'stable')}" aria-expanded="false">
+ const classes=`pod${module.empty?' empty':''}${options.interactive?' actionable':''}${options.selected===module.id?' selected':''}`;
+ const title=module.empty&&options.interactive?'Load a module into this bay':options.interactive?'Click to select · double-click to open · drag to move':'';
+ return `<button class="${classes}" type="button" data-id="${safe(module.id)}" data-role="${safe(module.role)}" data-status="${safe(module.status||'stable')}" data-empty="${module.empty?'true':'false'}" aria-expanded="false"${options.interactive?` aria-pressed="${options.selected===module.id?'true':'false'}"`:''}${options.draggable&&!module.empty?' draggable="true"':''}${title?` title="${safe(title)}"`:''}>
   <i class="pod-clamp top"></i>
   ${head}
   <header><span class="pod-role">${safe(ROLE_LABEL[module.role]||module.role)}</span><i class="pod-led"></i></header>
@@ -84,7 +86,8 @@ function render(container,data,options={}){
  const roleOf={};modules.forEach(module=>{roleOf[module.id]=module.role});
  const cables=((data&&data.links)||[]).map(link=>({...link,role:roleOf[link.from]||'logic'}));
  container.classList.add('rack');
- if(options.compact)container.classList.add('compact');
+ container.classList.toggle('compact',Boolean(options.compact));
+ container.classList.toggle('interactive',Boolean(options.interactive));
  /* The street decides the arrangement, so a given bay sits in the same place in every garage on it. */
  container.dataset.layout=options.layout||'rack';
  if(!modules.length){container.innerHTML='<div class="rack-frame"><p class="rack-empty">Nothing is mounted on this rack yet.</p></div>';return}
@@ -95,7 +98,7 @@ function render(container,data,options={}){
  container.innerHTML=`<div class="rack-frame">
    <i class="rack-rail top"></i><i class="rack-spine"></i>
    <svg class="rack-cables" aria-hidden="true"></svg>
-   <div class="rack-shelves">${shelves.map(shelf=>`<div class="rack-shelf">${shelf.map(module=>podMarkup(module,largest)).join('')}</div>`).join('')}</div>
+   <div class="rack-shelves">${shelves.map(shelf=>`<div class="rack-shelf">${shelf.map(module=>podMarkup(module,largest,options)).join('')}</div>`).join('')}</div>
    <i class="rack-rail bottom"></i>
   </div>${options.compact||options.detail===false?'':'<aside class="rack-detail" hidden></aside>'}`;
  container.cables=cables;
@@ -131,7 +134,42 @@ function render(container,data,options={}){
    detail.innerHTML=detailMarkup(module,cables);detail.hidden=false;
    detail.querySelector('[data-rack-agent]').onclick=()=>options.onAgent&&options.onAgent(module);
    /* After the drawer exists and is filled — anything onSelect appends would otherwise be wiped. */
-   if(options.onSelect)options.onSelect(module)})});
+   if(options.onSelect)options.onSelect(module)});
+  pod.addEventListener('dblclick',event=>{
+   if(!options.onOpen)return;
+   event.preventDefault();options.onOpen(modules.find(item=>item.id===pod.dataset.id))
+  });
+  pod.addEventListener('keydown',event=>{
+   if(event.key!=='Enter'||!options.onOpen)return;
+   event.preventDefault();options.onOpen(modules.find(item=>item.id===pod.dataset.id))
+  });
+  if(options.draggable&&pod.dataset.empty!=='true'){
+   pod.addEventListener('dragstart',event=>{
+    container.dataset.dragging=pod.dataset.id;pod.classList.add('dragging');
+    event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('application/x-vyb-module',pod.dataset.id);
+    event.dataTransfer.setData('text/plain',pod.dataset.id)
+   });
+   pod.addEventListener('dragend',()=>{
+    delete container.dataset.dragging;pod.classList.remove('dragging');
+    container.querySelectorAll('.drop-target').forEach(node=>node.classList.remove('drop-target'))
+   })
+  }
+  if(options.onMove||options.onExternalDrop){
+   pod.addEventListener('dragover',event=>{
+    const source=event.dataTransfer.getData('application/x-vyb-module')||container.dataset.dragging;
+    if(source===pod.dataset.id)return;
+    event.preventDefault();event.dataTransfer.dropEffect=source?'move':'copy';pod.classList.add('drop-target')
+   });
+   pod.addEventListener('dragleave',event=>{if(!pod.contains(event.relatedTarget))pod.classList.remove('drop-target')});
+   pod.addEventListener('drop',event=>{
+    event.preventDefault();pod.classList.remove('drop-target');
+    const source=event.dataTransfer.getData('application/x-vyb-module')||container.dataset.dragging;
+    const target=modules.find(item=>item.id===pod.dataset.id);
+    if(source&&source!==pod.dataset.id&&options.onMove)options.onMove(source,pod.dataset.id);
+    else if(!source&&options.onExternalDrop)options.onExternalDrop(target,event)
+   })
+  }
+ });
  return{redraw}}
 
 return{render,ROLE_LABEL}})();

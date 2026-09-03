@@ -91,8 +91,12 @@
             </nav>
 
             <div class="project-overview" id="projectOverview">
-              <div class="overview-note"><span>Click a mounted module to step inside it.</span><i id="bayCount"></i></div>
+              <div class="overview-note"><span>Click to select · double-click to open · drag to move or swap.</span><i id="bayCount"></i></div>
               <div id="garageRack"></div>
+              <div class="bay-selection" id="baySelection" hidden>
+                <div><span class="eyebrow" id="baySelectionLabel">Selected bay</span><b id="baySelectionName"></b><small id="baySelectionHint"></small></div>
+                <div><button class="button ghost" id="editSelectedBay" type="button">Change mount</button><button class="button solid" id="openSelectedBay" type="button">Open module</button></div>
+              </div>
             </div>
 
             <div class="module-room" id="moduleRoom" hidden>
@@ -198,6 +202,25 @@
         <label><span>What is under review?</span><input id="newProjectTagline" autocomplete="off" /></label>
         <button class="button solid" type="submit">Put it on the lift</button>
       </form>
+    </dialog>
+
+    <dialog class="module-loader-dialog" id="moduleLoaderDialog">
+      <form method="dialog"><button class="dialog-close" aria-label="Close module loader">×</button></form>
+      <header><span class="eyebrow" id="moduleLoaderBay">Empty bay</span><h2 id="moduleLoaderTitle">Load a module</h2><p id="moduleLoaderHint">Choose something detected in the paired workspace, or describe the mount yourself.</p></header>
+      <section class="module-candidate-section">
+        <div class="module-loader-section-head"><div><span class="eyebrow">From paired workspace</span><h3>Detected modules</h3></div><button class="text-button" id="refreshModuleCandidates" type="button">↻ rescan</button></div>
+        <div class="module-candidates" id="moduleCandidates"><p class="empty-copy">Scanning the paired workspace…</p></div>
+      </section>
+      <section class="module-manual-section">
+        <div class="module-loader-section-head"><div><span class="eyebrow">Manual mount</span><h3>Module details</h3></div></div>
+        <form id="moduleMountForm" class="module-mount-form">
+          <label><span>Name</span><input id="moduleMountName" maxlength="60" autocomplete="off" required placeholder="retrieval engine" /></label>
+          <div><label><span>Workspace-relative source</span><input id="moduleMountSource" maxlength="400" autocomplete="off" spellcheck="false" placeholder="src/retrieval" /></label><label><span>Language</span><input id="moduleMountLang" maxlength="24" autocomplete="off" placeholder="Python" /></label></div>
+          <label><span>Review note</span><input id="moduleMountNote" maxlength="160" autocomplete="off" placeholder="what this module does" /></label>
+          <div class="module-mount-actions"><button class="text-button danger" id="clearModuleMount" type="button" hidden>Clear this bay</button><span></span><button class="button ghost" type="button" id="cancelModuleMount">Cancel</button><button class="button solid" type="submit">Mount module</button></div>
+        </form>
+      </section>
+      <p class="module-loader-boundary">Mounting records a workspace-relative pointer for your own review room. It never uploads the folder. Public code still requires an explicit reviewed snapshot.</p>
     </dialog>
 
     <button class="garage-agent-bubble" id="garageAgentBubble" type="button" hidden

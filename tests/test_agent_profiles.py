@@ -204,6 +204,27 @@ class AgentProfileTests(unittest.TestCase):
         self.assertTrue(server.is_owner(alice))
         self.assertFalse(server.is_owner(bob))
 
+    def test_profile_appearance_is_a_separate_scoped_agent_capability(self) -> None:
+        page = "<!doctype html><style>body{background:#123}</style><h1>Agent-built page</h1>"
+        with server.db() as connection:
+            token = server.issue_agent_token(
+                connection, self.alice_id, "Page Agent", ["appearance"], profile_slug="page-agent"
+            )
+            identity = server.find_agent_identity(connection, token)
+        handler = object.__new__(server.VybPortHandler)
+        handler.acting_token = identity["token_id"]
+        with self.assertRaisesRegex(ValueError, "cannot call"):
+            handler.mcp_call(identity, [], "appearance.update_page", {"html": page})
+        updated = handler.mcp_call(identity, ["appearance"], "appearance.update_page", {"html": page})
+        self.assertTrue(updated["updated"])
+        read = handler.mcp_call(identity, ["appearance"], "appearance.read_page", {})
+        self.assertEqual(read["html"], page)
+        with server.db() as connection:
+            stored = connection.execute("SELECT profile_html FROM users WHERE id=?", (self.alice_id,)).fetchone()[0]
+        self.assertEqual(stored, page)
+        with self.assertRaisesRegex(ValueError, "96 KiB"):
+            server.clean_profile_html("x" * (server.MAX_PROFILE_HTML_BYTES + 1))
+
 
 class LegacyAgentTokenMigrationTests(unittest.TestCase):
     def test_old_token_rows_gain_stable_profiles_and_keep_authenticating(self) -> None:
@@ -335,6 +356,31 @@ class AgentProfileHttpTests(unittest.TestCase):
             "jsonrpc": "2.0", "id": 1, "method": "tools/call",
             "params": {"name": "profile.whoami", "arguments": {}},
         }, self.MCP_HEADERS | {"Authorization": f"Bearer {token}"})
+
+    def test_public_profile_canvas_is_raw_but_strongly_sandboxed(self) -> None:
+        cookie = self.register("canvas-user")
+        html = "<!doctype html><script>document.body.dataset.ran='yes'</script><h1>My whole page</h1>"
+        status, _, saved = self.request(
+            "POST", "/api/profile/page", {"html": html}, {"Cookie": cookie}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(saved["profile"]["html"], html)
+        status, _, public = self.request("GET", "/api/profiles/canvas-user/page")
+        self.assertEqual(status, 200)
+        self.assertEqual(public["profile"]["html"], html)
+
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        connection.request("GET", "/profiles/canvas-user/canvas")
+        response = connection.getresponse()
+        body = response.read().decode("utf-8")
+        headers = {key.lower(): value for key, value in response.getheaders()}
+        connection.close()
+        self.assertEqual(response.status, 200)
+        self.assertEqual(body, html)
+        self.assertIn("sandbox allow-scripts", headers["content-security-policy"])
+        self.assertIn("connect-src 'none'", headers["content-security-policy"])
+        self.assertIn("form-action 'none'", headers["content-security-policy"])
+        self.assertEqual(headers["referrer-policy"], "no-referrer")
 
     def test_create_publish_rotate_and_enforce_parent_ownership(self) -> None:
         alice_cookie = self.register("alice")
