@@ -68,3 +68,26 @@
 .friend-actions{display:flex;align-items:center;gap:8px}
 .friend-actions .button.solid{padding:5px 12px;font-size:12px}
 .friend-pending{color:#c2a967;font:10px "DM Mono"}
+
+/* Friends, and taking VybPort to the phone. */
+.friends-copy,.pair-copy{max-width:66ch;margin:8px 0 16px;color:#8ba0b1;font-size:12px;line-height:1.55}
+.friends-count{padding:3px 10px;border:1px solid rgba(122,166,255,.34);border-radius:99px;color:#bcd4ea;font:11px "DM Mono"}
+.friend-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(130,162,184,.12)}
+.friend-row:last-child{border-bottom:0}
+.friend-row>div:nth-child(2){display:grid;gap:1px;margin-right:auto}
+.friend-row b{font:600 13px Outfit,sans-serif}
+.friend-row span{color:#7f95a7;font:10px "DM Mono"}
+.friend-actions{display:flex;align-items:center;gap:8px}
+.friend-actions .button.solid{padding:5px 12px;font-size:12px}
+.friend-pending{color:#c2a967;font:10px "DM Mono"}
+.pair-panel{margin:18px 0 0;padding-top:16px;border-top:1px solid rgba(130,162,184,.16)}
+.pair-body{display:flex;flex-wrap:wrap;align-items:start;gap:18px}
+.pair-qr{display:grid;place-items:center;gap:8px;min-width:186px;min-height:186px;padding:12px;border:1px solid rgba(130,162,184,.18);border-radius:10px;background:rgba(4,7,11,.6)}
+.pair-qr svg{width:168px;height:168px;border-radius:4px}
+.pair-clock{color:#c2a967;font:10px "DM Mono"}
+.pair-wait{margin:0;color:#8ba0b1;font:11px "DM Mono";text-align:center}
+.pair-side{flex:1;min-width:240px;display:grid;gap:10px}
+.pair-url{display:block;overflow-x:auto;padding:11px;border:1px solid rgba(130,162,184,.22);border-radius:8px;background:#080d12;color:#9fdfd0;font:12px "DM Mono";white-space:nowrap}
+.pair-actions{display:flex;gap:14px}
+.pair-actions .text-button{color:#7aa6ff;font-size:12px;text-decoration:none}
+.pair-note{margin:0;color:#8ba0b1;font-size:11.5px;line-height:1.5}

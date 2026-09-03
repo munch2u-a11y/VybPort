@@ -125,3 +125,89 @@ $('#mcpIssued').onclick=async event=>{if(event.target.closest('[data-clear-key]'
 
 setInterval(()=>{if(viewer&&!$('#agentDock').classList.contains('hidden'))loadProfileAgentHistory()},5000);
 loadProfile().catch(error=>missingProfile(error.message));
+
+/* Friends. Requests are directional until answered, so incoming asks are shown apart from the list. */
+async function loadFriends() {
+  const list = document.querySelector("#friendsList");
+  if (!list) return;
+  let data;
+  try { data = await vybApi("/api/friends"); } catch { return; }
+  const person = (row, extra = "") =>
+    `<div class="friend-row"><div class="avatar tiny">${safe(row.display_name[0].toUpperCase())}</div>
+     <div><b>${safe(row.display_name)}</b><span>@${safe(row.handle)}</span></div>${extra}</div>`;
+  document.querySelector("#friendsCount").textContent = data.friends.length;
+  document.querySelector("#friendRequests").innerHTML = [
+    ...data.incoming.map((row) => person(row,
+      `<div class="friend-actions"><button class="button solid" data-accept="${safe(row.handle)}">Accept</button>
+       <button class="text-button" data-decline="${safe(row.handle)}">Decline</button></div>`)),
+    ...data.outgoing.map((row) => person(row, `<span class="friend-pending">asked</span>`)),
+  ].join("");
+  list.innerHTML = data.friends.length
+    ? data.friends.map((row) => person(row, `<button class="text-button" data-unfriend="${safe(row.handle)}">remove</button>`)).join("")
+    : `<p class="stage-note">Nobody yet. Open a garage out on the street and ask.</p>`;
+}
+document.querySelector("#friendRequests")?.addEventListener("click", async (event) => {
+  const button = event.target.closest("button");
+  const accept = button?.dataset.accept, decline = button?.dataset.decline;
+  if (!accept && !decline) return;
+  try {
+    await vybApi("/api/friends/respond", { method:"POST", body:JSON.stringify({ handle: accept || decline, accept: Boolean(accept) }) });
+    toast(accept ? `You and @${accept} are friends.` : `Declined @${decline}.`);
+    loadFriends();
+  } catch (error) { toast(error.message); }
+});
+document.querySelector("#friendsList")?.addEventListener("click", async (event) => {
+  const handle = event.target.closest("button")?.dataset.unfriend;
+  if (!handle) return;
+  try { await vybApi("/api/friends/remove", { method:"POST", body:JSON.stringify({ handle }) }); toast(`Removed @${handle}.`); loadFriends(); }
+  catch (error) { toast(error.message); }
+});
+
+/* Taking VybPort to the phone. The QR carries a single-use pairing code so the phone does not have
+   to be typed into; the written link deliberately does not, because a link that signs anyone in is
+   not something to leave sitting in an inbox. */
+let pairTimer = 0;
+async function loadPairing() {
+  const url = document.querySelector("#pairUrl");
+  if (!url) return;
+  let data;
+  try { data = await vybApi("/api/pair"); } catch { return; }
+  if (!(data.addresses || []).length) { url.textContent = "No network address found on this machine."; return; }
+  url.textContent = data.url;
+  document.querySelector("#pairMail").href =
+    `mailto:?subject=${encodeURIComponent("VybPort on my phone")}&body=${encodeURIComponent(data.url + "\n\nSame network as the workstation, then sign in.")}`;
+  document.querySelector("#pairNote").textContent = data.reachable
+    ? "Your phone has to be on the same network as this machine."
+    : "This server is listening on loopback only, so nothing off this machine can reach that address yet. Restart it with VYBPORT_HOST=0.0.0.0 to put it on your network.";
+}
+async function mintPairingCode() {
+  const holder = document.querySelector("#pairQr");
+  holder.innerHTML = `<p class="pair-wait">Minting…</p>`;
+  try {
+    const data = await vybApi("/api/pair", { method:"POST", body:JSON.stringify({}) });
+    let left = data.expires_in;
+    holder.innerHTML = `${data.svg}<span class="pair-clock" id="pairClock"></span>`;
+    clearInterval(pairTimer);
+    pairTimer = setInterval(() => {
+      const clock = document.querySelector("#pairClock");
+      if (!clock) { clearInterval(pairTimer); return; }
+      if (left <= 0) {
+        clearInterval(pairTimer);
+        holder.innerHTML = `<button class="button ghost" id="pairAgain" type="button">Code expired — make another</button>`;
+        return;
+      }
+      clock.textContent = `expires in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+      left -= 1;
+    }, 1000);
+  } catch (error) { holder.innerHTML = `<p class="pair-wait">${safe(error.message)}</p>`; }
+}
+document.querySelector("#pairQr")?.addEventListener("click", (event) => {
+  if (event.target.closest("#pairShow, #pairAgain")) mintPairingCode();
+});
+document.querySelector("#pairCopy")?.addEventListener("click", async () => {
+  const text = document.querySelector("#pairUrl").textContent;
+  try { await navigator.clipboard.writeText(text); toast("Link copied."); }
+  catch { toast(text); }
+});
+loadFriends();
+loadPairing();

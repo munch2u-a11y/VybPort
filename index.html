@@ -62,6 +62,7 @@
       <nav class="settings-tabs" aria-label="Settings sections">
         <button class="active" type="button" data-settings-tab="page">Public page</button>
         <button type="button" data-settings-tab="agents">Agent access</button>
+        <button type="button" data-settings-tab="friends">Friends</button>
         <button type="button" data-settings-tab="account">Security</button>
       </nav>
 
@@ -92,12 +93,31 @@
         <div class="mcp-list" id="mcpList"></div>
       </section>
 
+      <section class="settings-panel" data-settings-panel="friends" hidden>
+        <div class="settings-heading"><div><span class="eyebrow">Your people</span><h3>Friends</h3></div><span class="friends-count" id="friendsCount">0</span></div>
+        <p class="friends-copy">Friendship is mutual: both of you agreed. Favorites need nobody's permission and live on the Favorites tab out on the street.</p>
+        <div id="friendRequests"></div>
+        <div class="friends-list" id="friendsList"></div>
+      </section>
+
       <section class="settings-panel security-panel" data-settings-panel="account" hidden>
         <div class="settings-heading"><div><span class="eyebrow">Account boundary</span><h3 id="accountIdentity">Signed-in account</h3></div><span class="security-state">session protected</span></div>
         <div class="security-grid">
           <article><b>Browser session</b><p>The login cookie is HttpOnly and SameSite=Strict. Custom profile HTML cannot read it.</p></article>
           <article><b>Agent credentials</b><p>Every MCP key has its own scopes, expiry, rotation, and revocation. It is never the same as your human login.</p></article>
           <article><b>Local workspace</b><p>Workspace paths and host CLIs remain owner-only Garage controls. They are never exposed to the profile canvas.</p></article>
+        </div>
+        <div class="pair-panel">
+          <div class="settings-heading"><div><span class="eyebrow">Take it with you</span><h3>Open this on your phone</h3></div></div>
+          <p class="pair-copy">Scanning signs the phone in once without typing your password. The code lasts three minutes and works a single time. The written link carries no code, so it is safe to mail to yourself; the phone asks for your password instead.</p>
+          <div class="pair-body">
+            <div class="pair-qr" id="pairQr"><button class="button ghost" id="pairShow" type="button">Show pairing code</button></div>
+            <div class="pair-side">
+              <code class="pair-url" id="pairUrl">…</code>
+              <div class="pair-actions"><button class="text-button" id="pairCopy" type="button">Copy link</button><a class="text-button" id="pairMail" href="#">Email it to me</a></div>
+              <p class="pair-note" id="pairNote"></p>
+            </div>
+          </div>
         </div>
         <footer><a class="button ghost" href="./register.html">Account screen</a><button class="text-button danger" id="logoutAccount" type="button">Log out this browser</button></footer>
       </section>

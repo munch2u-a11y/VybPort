@@ -95,6 +95,21 @@ API, no separate account. Add it to your home screen and it opens standalone. Th
 
 Whatever you are looking at rides along with the next message you send, on every tab.
 
+### Getting it onto the phone
+
+Your profile's **Security** tab has a pairing panel. It shows the address this machine answers on and
+two ways to carry it over:
+
+- **Show pairing code** draws a QR. Scanning it signs the phone in once without typing a password.
+  The code lives three minutes, works exactly once, and is stored only as a hash — it is a live key
+  to your account for as long as it exists, which is why it expires about as fast as a walk to the
+  sofa.
+- **Copy link** and **Email it to me** hand over the plain address with no code in it, so it is safe
+  to leave in an inbox. The phone asks for your password instead.
+
+The QR is drawn by `qr.py`, a small stdlib encoder written for this, because pulling in a QR library
+would have been the project's first dependency.
+
 ### Reaching it from the phone
 
 The server binds `127.0.0.1` by default, so nothing reaches it from your phone until you decide how.

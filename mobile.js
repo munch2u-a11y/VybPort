@@ -22,7 +22,15 @@ const S = { view: "agent", connections: [], garages: [], garage: null, project: 
 /* ---- session ------------------------------------------------------------------------------- */
 async function boot() {
   let me = null;
-  try { me = (await api("/api/auth/me")).user; } catch {}
+  /* A pairing code is a one-shot key in the URL fragment. Spend it, then scrub it from the address
+     bar and from history so a screenshot or a back button cannot replay it. */
+  const paired = /(?:^|[#&])p=([\w-]+)/.exec(location.hash || "");
+  if (paired) {
+    try { me = (await api("/api/auth/pair", { method: "POST", body: JSON.stringify({ token: paired[1] }) })).user; }
+    catch (error) { toast(error.message); }
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+  try { me = me || (await api("/api/auth/me")).user; } catch {}
   $("#gate").hidden = Boolean(me);
   $("#app").hidden = !me;
   if (!me) return;

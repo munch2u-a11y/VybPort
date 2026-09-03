@@ -17,6 +17,7 @@ import re
 import secrets
 import shlex
 import shutil
+import socket
 import sqlite3
 import subprocess
 import tempfile
@@ -26,6 +27,8 @@ from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+
+import qr
 
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
@@ -71,6 +74,30 @@ SSH_KEY_TYPES = {
 # A neighbourhood is a street with a shared rack layout: every garage on it fills the same bays,
 # so two projects can be read module against module instead of README against README.
 RACK_ROLES = {"memory", "interface", "logic", "effects", "tests", "config", "docs", "assets", "agents"}
+
+
+PAIR_TTL = 180          # a pairing link is a live key to the account: it should not outlive a walk to the sofa
+
+
+def lan_addresses() -> list[str]:
+    """Addresses a phone on the same network could actually dial. No packets are sent: connecting a
+    UDP socket only asks the routing table which interface would be used."""
+    found: list[str] = []
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect(("192.0.2.1", 9))          # TEST-NET-1, deliberately unroutable
+        found.append(probe.getsockname()[0])
+    except OSError:
+        pass
+    finally:
+        probe.close()
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            found.append(info[4][0])
+    except OSError:
+        pass
+    return [address for index, address in enumerate(found)
+            if not address.startswith("127.") and address not in found[:index]]
 
 
 def slot(key: str, label: str, role: str, hint: str) -> dict[str, str]:
@@ -241,6 +268,11 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS comments (
                 id INTEGER PRIMARY KEY, target TEXT NOT NULL, user_id INTEGER NOT NULL,
                 body TEXT NOT NULL, via TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS pair_tokens (
+                token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL,
+                created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_at INTEGER,
+                FOREIGN KEY(user_id) REFERENCES users(id)
             );
             CREATE TABLE IF NOT EXISTS friendships (
                 requester_id INTEGER NOT NULL, addressee_id INTEGER NOT NULL,
@@ -3571,6 +3603,19 @@ class VybPortHandler(SimpleHTTPRequestHandler):
             except PermissionError as error:
                 self.json_response(HTTPStatus.UNAUTHORIZED, {"error": str(error)})
             return
+        if parsed.path == "/api/pair":
+            user = self.session_user()
+            if not user:
+                self.json_response(HTTPStatus.OK, {"addresses": [], "reachable": False})
+                return
+            addresses = lan_addresses()
+            self.json_response(HTTPStatus.OK, {
+                "addresses": addresses, "port": PORT,
+                "reachable": HOST not in ("127.0.0.1", "localhost", "::1"),
+                # The plain address, safe to write down or mail. The pairing code is minted separately.
+                "url": f"http://{addresses[0] if addresses else HOST}:{PORT}/mobile.html",
+            })
+            return
         if parsed.path == "/api/friends":
             user = self.session_user()
             if not user:
@@ -4456,6 +4501,39 @@ class VybPortHandler(SimpleHTTPRequestHandler):
                         raise ValueError(f"No benchmark is open on {hood['name']}.")
                     podium = self.close_benchmark(connection, open_row)
                 self.json_response(HTTPStatus.OK, {"closed": open_row["slug"], "podium": podium})
+                return
+            if route == "/api/pair":
+                user = self.require_user()
+                token, now = secrets.token_urlsafe(24), int(time.time())
+                addresses = lan_addresses()
+                host = str(payload.get("address") or "").strip() or (addresses[0] if addresses else HOST)
+                if host not in addresses and host != HOST:
+                    raise ValueError("Pair against an address this machine actually answers on.")
+                url = f"http://{host}:{PORT}/mobile.html#p={token}"
+                with db() as connection:
+                    connection.execute("DELETE FROM pair_tokens WHERE expires_at<?", (now,))
+                    connection.execute(
+                        "INSERT INTO pair_tokens(token_hash,user_id,created_at,expires_at) VALUES(?,?,?,?)",
+                        (hashlib.sha256(token.encode()).hexdigest(), user["id"], now, now + PAIR_TTL))
+                self.json_response(HTTPStatus.OK, {
+                    "url": url, "svg": qr.svg(url), "expires_in": PAIR_TTL,
+                    "addresses": addresses, "port": PORT,
+                    # A phone cannot reach a server listening only on loopback, whatever the QR says.
+                    "reachable": HOST not in ("127.0.0.1", "localhost", "::1"),
+                })
+                return
+            if route == "/api/auth/pair":
+                token = str(payload.get("token") or "")
+                now = int(time.time())
+                with db() as connection:
+                    row = connection.execute(
+                        "SELECT * FROM pair_tokens WHERE token_hash=?",
+                        (hashlib.sha256(token.encode()).hexdigest(),)).fetchone()
+                    if not row or row["used_at"] or row["expires_at"] < now:
+                        raise ValueError("That pairing link has already been used or has expired. Make a fresh one.")
+                    connection.execute("UPDATE pair_tokens SET used_at=? WHERE token_hash=?", (now, row["token_hash"]))
+                    user = connection.execute("SELECT * FROM users WHERE id=?", (row["user_id"],)).fetchone()
+                self.json_response(HTTPStatus.OK, {"user": user_payload(user)}, self.issue_session(user["id"]))
                 return
             if route == "/api/friends":
                 user = self.require_user()
